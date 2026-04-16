@@ -1,0 +1,10 @@
+[skills]
+db_path = "~/.local/share/skills/skills.sqlite"
+
+[embed]
+model = "nomic-ai/nomic-embed-text-v1.5"
+models_dir = "~/.local/share/skills/models"
+dim = 768
+batch_size = 32
+chunk_tokens = 512
+chunk_overlap = 64
