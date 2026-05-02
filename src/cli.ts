@@ -7,6 +7,7 @@ import {
     run,
 } from "@andreas-timm/cli";
 import { registerApproveCommands } from "@features/approve/cli";
+import { registerInstallCommands } from "@features/install/cli";
 import { registerListCommands } from "@features/list/cli";
 import { registerLocationCommands } from "@features/location/cli";
 import { registerSearchCommands } from "@features/search/cli";
@@ -28,6 +29,7 @@ cli.version(packageJson.version);
 
 registerUpdateCommands(cli);
 registerSkillCommands(cli);
+registerInstallCommands(cli);
 registerSearchCommands(cli);
 registerShowCommands(cli);
 registerStatusCommands(cli);
