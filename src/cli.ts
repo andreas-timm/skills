@@ -20,6 +20,7 @@ import { cac } from "cac";
 import packageJson from "../package.json";
 
 const cli = cac(Object.keys(packageJson.bin)[0]);
+cli.globalCommand.description = packageJson.description;
 cli.usage("[command] [options]");
 
 cli.option("-v, --verbose", "Enable verbose logging");
