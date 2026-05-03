@@ -7,6 +7,7 @@ import {
     run,
 } from "@andreas-timm/cli";
 import { registerApproveCommands } from "@features/approve/cli";
+import { registerInstallCommands } from "@features/install/cli";
 import { registerListCommands } from "@features/list/cli";
 import { registerLocationCommands } from "@features/location/cli";
 import { registerSearchCommands } from "@features/search/cli";
@@ -20,6 +21,7 @@ import { cac } from "cac";
 import packageJson from "../package.json";
 
 const cli = cac(Object.keys(packageJson.bin)[0]);
+cli.globalCommand.description = packageJson.description;
 cli.usage("[command] [options]");
 
 cli.option("-v, --verbose", "Enable verbose logging");
@@ -27,6 +29,7 @@ cli.version(packageJson.version);
 
 registerUpdateCommands(cli);
 registerSkillCommands(cli);
+registerInstallCommands(cli);
 registerSearchCommands(cli);
 registerShowCommands(cli);
 registerStatusCommands(cli);
