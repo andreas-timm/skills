@@ -81,7 +81,7 @@ const LIST_VERSIONS_COMMAND_OPTIONS = [
     WIDTH_OPTION,
 ] as const satisfies readonly CliOptionItem[];
 
-export function registerListCommands(cli: CAC): void {
+export function registerSkillsCommands(cli: CAC): void {
     addCommandOptions(
         cli.command("", "List indexed skills from the skill SQLite db"),
         LIST_COMMAND_OPTIONS,

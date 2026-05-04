@@ -1,8 +1,8 @@
 import { createTable, isPipedOutput, type TableWidth } from "@andreas-timm/cli-table";
-import type { SkillListRow } from "@features/list/query";
 import { toPublicSkillVersion } from "@features/skill/version";
 import { formatDateUtc } from "@libs/date";
 import { normalizeInline } from "./format";
+import type { SkillListRow } from "./query";
 
 const COLUMN_GAP = 1;
 

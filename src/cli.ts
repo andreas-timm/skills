@@ -8,7 +8,6 @@ import {
 } from "@andreas-timm/cli";
 import { registerApproveCommands } from "@features/approve/cli";
 import { registerInstallCommands } from "@features/install/cli";
-import { registerListCommands } from "@features/list/cli";
 import { registerLocationCommands } from "@features/location/cli";
 import { registerSearchCommands } from "@features/search/cli";
 import { registerShowCommands } from "@features/show/cli";
@@ -19,6 +18,7 @@ import { registerVirusTotalCommands } from "@features/virustotal/cli";
 import { registerZipCommands } from "@features/zip/cli";
 import { cac } from "cac";
 import packageJson from "../package.json";
+import { registerSkillsCommands } from "./features/skills/cli";
 
 const cli = cac(Object.keys(packageJson.bin)[0]);
 cli.globalCommand.description = packageJson.description;
@@ -33,7 +33,7 @@ registerInstallCommands(cli);
 registerSearchCommands(cli);
 registerShowCommands(cli);
 registerStatusCommands(cli);
-registerListCommands(cli);
+registerSkillsCommands(cli);
 registerLocationCommands(cli);
 registerApproveCommands(cli);
 registerZipCommands(cli);

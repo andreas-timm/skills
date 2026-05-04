@@ -8,15 +8,11 @@ import {
     LOCAL_SKILLS_DIR,
 } from "@features/agent/skills-dir";
 import { approvedLocationNames } from "@features/approve/effective";
-import {
-    listSkillsByFullIds,
-    type SkillListRow,
-    type SkillListRowByFullId,
-} from "@features/list/query";
-import { renderSkillListTable } from "@features/list/table";
 import { shortSkillId } from "@features/skill/id";
 import { resolveSkillsDbPath } from "@features/update/paths";
 import { createDeterministicSkillZip } from "@features/zip/deterministic-zip";
+import { listSkillsByFullIds, type SkillListRow, type SkillListRowByFullId } from "../skills/query";
+import { renderSkillListTable } from "../skills/table";
 
 const SKILL_FILE = "SKILL.md";
 

@@ -4,7 +4,7 @@ import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { from, of } from "rxjs";
-import { listSources } from "../list/query";
+import { listSources } from "../skills/query";
 import { computeVersionOrders, load, type VersionOrderRow } from "./load";
 import type { TransformedSkill } from "./types";
 
