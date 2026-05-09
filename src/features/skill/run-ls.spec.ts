@@ -175,6 +175,65 @@ describe("listInstalledSkills", () => {
         ]);
     });
 
+    test("discovers skills from node_modules folders", async () => {
+        const projectDir = await createTempProject();
+        const localSkillDir = join(projectDir, ".agents/skills/local-demo");
+        const scopedSkillDir = join(projectDir, "node_modules/@acme/tool/skills/alpha-node");
+        const workspaceSkillDir = join(
+            projectDir,
+            "packages/app/node_modules/plain-tool/skills/beta-node",
+        );
+        const ignoredSkillDir = join(projectDir, "vendor/plain-tool/skills/ignored");
+        await mkdir(localSkillDir, { recursive: true });
+        await mkdir(scopedSkillDir, { recursive: true });
+        await mkdir(workspaceSkillDir, { recursive: true });
+        await mkdir(ignoredSkillDir, { recursive: true });
+        await writeFile(join(localSkillDir, "SKILL.md"), "---\nname: local-demo\n---\n# Local\n");
+        await writeFile(
+            join(scopedSkillDir, "SKILL.md"),
+            "---\nname: alpha-node\ndescription: Scoped package skill.\n---\n# Alpha\n",
+        );
+        await writeFile(
+            join(workspaceSkillDir, "SKILL.md"),
+            "---\nname: beta-node\ndescription: Plain package skill.\n---\n# Beta\n",
+        );
+        await writeFile(
+            join(ignoredSkillDir, "SKILL.md"),
+            "---\nname: ignored-node\n---\n# Ignored\n",
+        );
+        const alphaModifiedAt = new Date("2026-04-25T08:00:00.000Z");
+        const betaModifiedAt = new Date("2026-04-26T09:00:00.000Z");
+        await utimes(join(scopedSkillDir, "SKILL.md"), alphaModifiedAt, alphaModifiedAt);
+        await utimes(join(workspaceSkillDir, "SKILL.md"), betaModifiedAt, betaModifiedAt);
+        const alphaZip = await createDeterministicSkillZip({
+            rootDir: scopedSkillDir,
+        });
+        const betaZip = await createDeterministicSkillZip({
+            rootDir: workspaceSkillDir,
+        });
+
+        expect(await listInstalledSkills(projectDir, { nodeModules: true })).toEqual([
+            {
+                description: "Scoped package skill.",
+                id: alphaZip.sha256,
+                modifiedAt: alphaModifiedAt,
+                name: "alpha-node",
+                nodeModulePackageName: "@acme/tool",
+                path: join(scopedSkillDir, "SKILL.md"),
+                rootDir: scopedSkillDir,
+            },
+            {
+                description: "Plain package skill.",
+                id: betaZip.sha256,
+                modifiedAt: betaModifiedAt,
+                name: "beta-node",
+                nodeModulePackageName: "plain-tool",
+                path: join(workspaceSkillDir, "SKILL.md"),
+                rootDir: workspaceSkillDir,
+            },
+        ]);
+    });
+
     test("hydrates installed skills from indexed rows by zip id", async () => {
         const projectDir = await createTempProject();
         const skillsDir = join(projectDir, ".agents/skills");
@@ -370,6 +429,51 @@ describe("renderInstalledSkills", () => {
         expect(output).toContain("Indexed description.");
     });
 
+    test("renders node_modules provenance while keeping indexed metadata", () => {
+        const output = renderInstalledSkills(
+            resolveInstalledSkillRows(
+                [
+                    {
+                        description: "Node module skill.",
+                        id: "1234567890abcdef",
+                        modifiedAt: new Date("2026-04-25T08:00:00.000Z"),
+                        name: "node-demo",
+                        nodeModulePackageName: "@acme/tool",
+                        path: "/project/node_modules/@acme/tool/skills/node-demo/SKILL.md",
+                        rootDir: "/project/node_modules/@acme/tool/skills/node-demo",
+                    },
+                ],
+                [
+                    {
+                        full_id: "1234567890abcdef",
+                        id: "12345678",
+                        date: "2026-04-20T00:00:00.000Z",
+                        version_order: 1,
+                        version_count: 1,
+                        duplicate: 0,
+                        name: "indexed-node-demo",
+                        version: null,
+                        description: "Indexed node description.",
+                        location: "packages",
+                        source_name: "source-one",
+                        status: "approved",
+                        rating: null,
+                        tags: [],
+                        note: null,
+                    },
+                ],
+            ),
+            "/project",
+            { width: 0, nodeModules: true },
+        );
+
+        expect(output).toContain("12345678");
+        expect(output).toContain("indexed-node-demo ✅");
+        expect(output).toContain("node_modules");
+        expect(output).toContain("@acme/tool");
+        expect(output).toContain("Indexed node description.");
+    });
+
     test("renders an empty message", () => {
         expect(renderInstalledSkills([], "/project")).toBe(
             "No installed skills found in /project/.agents/skills\n",
@@ -394,6 +498,12 @@ describe("renderInstalledSkills", () => {
                 "- /home/user/.config/openode/skills",
                 "",
             ].join("\n"),
+        );
+    });
+
+    test("renders an empty node_modules message", () => {
+        expect(renderInstalledSkills([], "/project", { nodeModules: true })).toBe(
+            "No node_modules skills found under /project\n",
         );
     });
 });
