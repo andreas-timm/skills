@@ -46,7 +46,7 @@
         "prepack": "bun run build",
         "prepublishOnly": "bun run lint && bun test && bun audit --audit-level=moderate",
         "release": "semantic-release",
-        "release:preview": "semantic-release --dry-run --no-ci --plugins @semantic-release/commit-analyzer @semantic-release/release-notes-generator",
+        "release:preview": "node scripts/release-preview.cjs",
         "release:publish": "bun scripts/publish.ts"
     },
     "devDependencies": {
