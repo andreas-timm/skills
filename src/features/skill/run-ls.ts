@@ -26,6 +26,7 @@ export interface InstalledSkill {
     nodeModulePackageName?: string;
     path: string;
     rootDir: string;
+    sourceRootDir?: string;
     version?: string;
 }
 
@@ -43,6 +44,11 @@ type RenderInstalledSkillsOptions = ListInstalledSkillsOptions & {
 type InstalledSkillSearchRoot = {
     disabled?: true;
     path: string;
+};
+
+type ListInstalledSkillsInDirOptions = {
+    disabled?: true;
+    resolveSource?: boolean;
 };
 
 function readFrontmatter(markdown: string): Record<string, string> {
@@ -300,12 +306,15 @@ async function listNodeModulesSkills(cwd: string): Promise<InstalledSkill[]> {
 
 async function listInstalledSkillsInDir(
     skillsDir: string,
-    options: { disabled?: true } = {},
+    options: ListInstalledSkillsInDirOptions = {},
 ): Promise<InstalledSkill[]> {
     if (!(await pathExists(skillsDir))) {
         return [];
     }
 
+    const resolvedSkillsDir = options.resolveSource
+        ? ((await maybeRealpath(skillsDir)) ?? skillsDir)
+        : skillsDir;
     const entries = await readdir(skillsDir, { withFileTypes: true });
     const skills: InstalledSkill[] = [];
 
@@ -329,17 +338,25 @@ async function listInstalledSkillsInDir(
             continue;
         }
 
-        const metadata = readFrontmatter(await readFile(skillPath, "utf8"));
-        const zip = await createDeterministicSkillZip({ rootDir: skillDir });
+        const expectedResolvedSkillPath = join(resolvedSkillsDir, entry.name, SKILL_FILE);
+        const resolvedSkillPath = options.resolveSource
+            ? ((await maybeRealpath(skillPath)) ?? skillPath)
+            : skillPath;
+        const resolvedSkillDir = options.resolveSource ? dirname(resolvedSkillPath) : skillDir;
+        const metadata = readFrontmatter(await readFile(resolvedSkillPath, "utf8"));
+        const zip = await createDeterministicSkillZip({ rootDir: resolvedSkillDir });
         const skill: InstalledSkill = {
             description: metadata.description,
             id: zip.sha256,
             modifiedAt: skillFileStat.mtime,
             name: metadata.name || entry.name,
-            path: skillPath,
-            rootDir: skillDir,
+            path: resolvedSkillPath,
+            rootDir: resolvedSkillDir,
             version: metadata.version,
         };
+        if (options.resolveSource && resolvedSkillPath !== resolve(expectedResolvedSkillPath)) {
+            skill.sourceRootDir = resolvedSkillDir;
+        }
         if (options.disabled) {
             skill.disabled = true;
         }
@@ -350,6 +367,18 @@ async function listInstalledSkillsInDir(
         (left, right) =>
             left.name.localeCompare(right.name) || left.rootDir.localeCompare(right.rootDir),
     );
+}
+
+function dedupeInstalledSkillsBySource(skills: readonly InstalledSkill[]): InstalledSkill[] {
+    const skillsBySource = new Map<string, InstalledSkill>();
+
+    for (const skill of skills) {
+        if (!skillsBySource.has(skill.path)) {
+            skillsBySource.set(skill.path, skill);
+        }
+    }
+
+    return [...skillsBySource.values()];
 }
 
 export async function listInstalledSkills(
@@ -365,12 +394,15 @@ export async function listInstalledSkills(
             resolveInstalledSkillSearchRootEntries(cwd, options).map((root) =>
                 listInstalledSkillsInDir(root.path, {
                     disabled: root.disabled,
+                    resolveSource: options.global,
                 }),
             ),
         )
     ).flat();
 
-    return skills.sort(
+    const uniqueSkills = options.global ? dedupeInstalledSkillsBySource(skills) : skills;
+
+    return uniqueSkills.sort(
         (left, right) =>
             left.name.localeCompare(right.name) || left.rootDir.localeCompare(right.rootDir),
     );
@@ -378,6 +410,7 @@ export async function listInstalledSkills(
 
 export type InstalledSkillListRow = SkillListRow & {
     disabled?: true;
+    sourceRootDir?: string;
 };
 
 function fallbackSkillListRow(skill: InstalledSkill): InstalledSkillListRow {
@@ -400,6 +433,9 @@ function fallbackSkillListRow(skill: InstalledSkill): InstalledSkillListRow {
     if (skill.disabled) {
         row.disabled = true;
     }
+    if (skill.sourceRootDir) {
+        row.sourceRootDir = skill.sourceRootDir;
+    }
     return row;
 }
 
@@ -420,6 +456,9 @@ export function resolveInstalledSkillRows(
         if (skill.nodeModulePackageName) {
             row.location = "node_modules";
             row.source_name = skill.nodeModulePackageName;
+        }
+        if (skill.sourceRootDir) {
+            row.sourceRootDir = skill.sourceRootDir;
         }
         return row;
     });

@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, test } from "bun:test";
-import { mkdir, mkdtemp, rm, utimes, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, realpath, rm, symlink, utimes, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { AGENT_SKILLS_DIR_LIST } from "@features/agent/skills-dir";
@@ -146,6 +146,12 @@ describe("listInstalledSkills", () => {
         const geminiZip = await createDeterministicSkillZip({
             rootDir: geminiSkillDir,
         });
+        const agentSkillPath = await realpath(join(agentSkillDir, "SKILL.md"));
+        const codexSkillPath = await realpath(join(codexSkillDir, "SKILL.md"));
+        const geminiSkillPath = await realpath(join(geminiSkillDir, "SKILL.md"));
+        const agentSkillRoot = await realpath(agentSkillDir);
+        const codexSkillRoot = await realpath(codexSkillDir);
+        const geminiSkillRoot = await realpath(geminiSkillDir);
 
         expect(await listInstalledSkills(projectDir, { global: true, homeDir })).toEqual([
             {
@@ -153,24 +159,63 @@ describe("listInstalledSkills", () => {
                 id: agentZip.sha256,
                 modifiedAt: agentModifiedAt,
                 name: "agent-demo",
-                path: join(agentSkillDir, "SKILL.md"),
-                rootDir: agentSkillDir,
+                path: agentSkillPath,
+                rootDir: agentSkillRoot,
             },
             {
                 description: "Codex skill.",
                 id: codexZip.sha256,
                 modifiedAt: codexModifiedAt,
                 name: "codex-demo",
-                path: join(codexSkillDir, "SKILL.md"),
-                rootDir: codexSkillDir,
+                path: codexSkillPath,
+                rootDir: codexSkillRoot,
             },
             {
                 description: "Gemini skill.",
                 id: geminiZip.sha256,
                 modifiedAt: geminiModifiedAt,
                 name: "gemini-demo",
-                path: join(geminiSkillDir, "SKILL.md"),
-                rootDir: geminiSkillDir,
+                path: geminiSkillPath,
+                rootDir: geminiSkillRoot,
+            },
+        ]);
+    });
+
+    test("deduplicates global skills by resolved SKILL.md source", async () => {
+        const projectDir = await createTempProject();
+        const homeDir = await createTempProject();
+        const sourceSkillDir = join(projectDir, "source/git-commit");
+        const claudeSkillsDir = join(homeDir, ".claude/skills");
+        const piSkillsDir = join(homeDir, ".pi/agent/skills");
+        const piSkillDir = join(piSkillsDir, "git-commit");
+        await mkdir(sourceSkillDir, { recursive: true });
+        await mkdir(claudeSkillsDir, { recursive: true });
+        await mkdir(piSkillDir, { recursive: true });
+        await writeFile(
+            join(sourceSkillDir, "SKILL.md"),
+            "---\nname: git-commit\ndescription: Commit messages.\n---\n# Commit\n",
+        );
+        await symlink(sourceSkillDir, join(claudeSkillsDir, "git-commit"), "dir");
+        await symlink(join(sourceSkillDir, "SKILL.md"), join(piSkillDir, "SKILL.md"), "file");
+        const modifiedAt = new Date("2026-05-07T19:47:28.000Z");
+        await utimes(join(sourceSkillDir, "SKILL.md"), modifiedAt, modifiedAt);
+        const zip = await createDeterministicSkillZip({
+            rootDir: sourceSkillDir,
+        });
+        const sourcePath = await realpath(join(sourceSkillDir, "SKILL.md"));
+        const sourceRootDir = await realpath(sourceSkillDir);
+
+        const skills = await listInstalledSkills(projectDir, { global: true, homeDir });
+
+        expect(skills).toEqual([
+            {
+                description: "Commit messages.",
+                id: zip.sha256,
+                modifiedAt,
+                name: "git-commit",
+                path: sourcePath,
+                rootDir: sourceRootDir,
+                sourceRootDir,
             },
         ]);
     });
@@ -472,6 +517,32 @@ describe("renderInstalledSkills", () => {
         expect(output).toContain("node_modules");
         expect(output).toContain("@acme/tool");
         expect(output).toContain("Indexed node description.");
+    });
+
+    test("renders resolved source provenance for global symlink skills", () => {
+        const output = renderInstalledSkills(
+            resolveInstalledSkillRows(
+                [
+                    {
+                        description: "Commit messages.",
+                        id: "1234567890abcdef",
+                        modifiedAt: new Date("2026-05-07T19:47:28.000Z"),
+                        name: "git-commit",
+                        path: "/source/git-commit/SKILL.md",
+                        rootDir: "/source/git-commit",
+                        sourceRootDir: "/source/git-commit",
+                    },
+                ],
+                [],
+            ),
+            "/project",
+            { global: true, width: 0 },
+        );
+
+        expect(output).toContain("git-commit                          Commit messages.");
+        expect(output).toContain("                              /source/git-commit");
+        expect(output).not.toContain(" | source | ");
+        expect(output).toContain("Commit messages.");
     });
 
     test("renders an empty message", () => {

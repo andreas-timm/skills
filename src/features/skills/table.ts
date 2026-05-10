@@ -5,6 +5,12 @@ import { normalizeInline } from "./format";
 import type { SkillListRow } from "./query";
 
 const COLUMN_GAP = 1;
+const ID_COLUMN_WIDTH = 8;
+const DATE_COLUMN_WIDTH = 16;
+const VERSION_COLUMN_WIDTH = 3;
+const DETAIL_NAME_COLUMN_WIDTH = 35;
+const DETAIL_LINE_INDENT =
+    ID_COLUMN_WIDTH + DATE_COLUMN_WIDTH + VERSION_COLUMN_WIDTH + COLUMN_GAP * 3;
 
 export type SkillListTableSkill = Pick<
     SkillListRow,
@@ -21,11 +27,13 @@ export type SkillListTableSkill = Pick<
     | "status"
 > & {
     disabled?: true;
+    sourceRootDir?: string;
 };
 
 type RenderedSkillListTableRow = {
     id: string;
     date: string;
+    detail?: string;
     version: string;
     name: string;
     description: string;
@@ -67,6 +75,7 @@ function toRenderedSkillListTableRows(
         return {
             id: skill.id,
             date: formatDateUtc(skill.date),
+            detail: skill.sourceRootDir,
             version: `${skill.version_count}|${skill.duplicate}`,
             name: formatSkillListName(skill, tableWidth === "full"),
             description: skill.description ? normalizeInline(skill.description) : "-",
@@ -80,15 +89,17 @@ export function renderSkillListTable(
 ): string {
     const tableWidth = options.tableWidth ?? resolveSkillListTableWidth(options.width);
     const rows = toRenderedSkillListTableRows(skills, tableWidth);
+    const hasDetailRows = rows.some((row) => row.detail);
     const table = createTable({
         columnGap: COLUMN_GAP,
         columns: [
-            { index: 0, width: 8 },
-            { index: 1, width: tableWidth === "full" ? 16 : 10 },
-            { index: 2, width: 3 },
+            { index: 0, width: ID_COLUMN_WIDTH },
+            { index: 1, width: DATE_COLUMN_WIDTH },
+            { index: 2, width: VERSION_COLUMN_WIDTH },
             {
                 index: 3,
                 fit: "content",
+                minWidth: hasDetailRows ? DETAIL_NAME_COLUMN_WIDTH : undefined,
                 maxWidth: tableWidth === "full" ? undefined : 35,
             },
         ],
@@ -98,6 +109,9 @@ export function renderSkillListTable(
 
     for (const row of rows) {
         table.push([row.id, row.date, row.version, row.name, row.description]);
+        if (row.detail) {
+            table.pushLine(row.detail, { indent: DETAIL_LINE_INDENT });
+        }
     }
 
     return `${table.toString()}\n`;
