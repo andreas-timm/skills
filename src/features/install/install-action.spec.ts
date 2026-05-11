@@ -1,6 +1,6 @@
 import { Database } from "bun:sqlite";
 import { describe, expect, it } from "bun:test";
-import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { lstat, mkdir, mkdtemp, readFile, realpath, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { shortSkillId } from "@features/skill/id";
@@ -250,6 +250,63 @@ describe("installSkill", () => {
             );
         } finally {
             await rm(sourceDir, { recursive: true, force: true });
+            await rm(projectDir, { recursive: true, force: true });
+        }
+    });
+
+    it("installs a skill discovered under node_modules", async () => {
+        const projectDir = await makeTempDir("skills-install-node-modules-");
+        const skillDir = path.join(projectDir, "node_modules", "@acme", "tool", "skills", "demo");
+        try {
+            await writeSkill(
+                skillDir,
+                "---\nname: node-demo\ndescription: From node_modules.\n---\n\n# Node\n",
+            );
+            const zip = await createDeterministicSkillZip({ rootDir: skillDir });
+
+            const result = await installSkill({
+                skill: shortSkillId(zip.sha256),
+                cwd: projectDir,
+                nodeModules: true,
+            });
+
+            expect(result.skillName).toBe("node-demo");
+            expect(result.sha256).toBe(zip.sha256);
+            expect(result.rootDir).toBe(skillDir);
+            expect(result.targetDir).toBe(path.join(projectDir, ".agents", "skills", "node-demo"));
+            expect(result.symlink).toBe(false);
+            await expect(
+                readFile(path.join(result.targetDir, "SKILL.md"), "utf-8"),
+            ).resolves.toContain("From node_modules.");
+        } finally {
+            await rm(projectDir, { recursive: true, force: true });
+        }
+    });
+
+    it("installs a node_modules skill as a symlink", async () => {
+        const projectDir = await makeTempDir("skills-install-node-symlink-");
+        const skillDir = path.join(projectDir, "node_modules", "toolkit", "skills", "linked-demo");
+        try {
+            await writeSkill(
+                skillDir,
+                "---\nname: linked-demo\ndescription: Linked from node_modules.\n---\n\n# Linked\n",
+            );
+
+            const result = await installSkill({
+                skill: "linked-demo",
+                cwd: projectDir,
+                nodeModules: true,
+                symlink: true,
+            });
+
+            expect(result.skillName).toBe("linked-demo");
+            expect(result.symlink).toBe(true);
+            expect((await lstat(result.targetDir)).isSymbolicLink()).toBe(true);
+            expect(await realpath(result.targetDir)).toBe(await realpath(skillDir));
+            await expect(
+                readFile(path.join(result.targetDir, "SKILL.md"), "utf-8"),
+            ).resolves.toContain("Linked from node_modules.");
+        } finally {
             await rm(projectDir, { recursive: true, force: true });
         }
     });

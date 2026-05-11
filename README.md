@@ -25,7 +25,6 @@ This tool takes a more conservative path:
 ## Requirements
 
 - [Bun](https://bun.sh)
-- [`fd`](https://github.com/sharkdp/fd), used to scan for `SKILL.md`
 - `git`, used to record remote, branch, commit, and date when available
 
 ## Install
@@ -44,7 +43,7 @@ skills search "react"
 skills show "SKILL_NAME"
 ```
 
-By default, `skills install <skill_id>` writes to the current project's `.agents/skills/<skill_name>` folder. Use `--global`, `-g`, or an agent name such as `--global codex` for user-level installs.
+By default, `skills install <skill_id>` writes to the current project's `.agents/skills/<skill_name>` folder. Use `--global`, `-g`, or an agent name such as `--global codex` for user-level installs. Use `skills ls --node-modules` to inspect package-provided skills, then `skills install -m <skill_id>` to install one from `node_modules`; add `-s` to install it as a symlink.
 
 ## Core Concepts
 
@@ -104,13 +103,13 @@ Approval has three scopes:
 - **Source approval:** `skills approve source <source-id> --status approved` marks the current indexed source snapshot and its current skill rows as approved.
 - **Skill approval:** `skills approve skill <skill_id> --status approved` marks one exact indexed artifact as approved.
 
-`skills install <skill_id>` uses the effective approval check. Direct skill statuses such as `approved` or `ignore` win; location approval only fills in when the skill row has no direct status. Unapproved or ignored skills are blocked unless `--force` is passed.
+`skills install <skill_id>` uses the effective approval check. Direct skill statuses such as `approved` or `ignore` win; location approval only fills in when the skill row has no direct status. Unapproved or ignored skills are blocked unless `--force` is passed. `skills install -m <skill_id>` resolves against local `node_modules` skills instead of the indexed approval database.
 
 ## Update Pipeline
 
 `skills update` runs an `extract -> transform -> load` ETL pipeline in [src/features/update](src/features/update):
 
-- **Extract:** [extract.ts](src/features/update/extract.ts) runs `fd -g SKILL.md` under each configured location.
+- **Extract:** [extract.ts](src/features/update/extract.ts) walks each configured location with native filesystem APIs to find `SKILL.md`.
 - **Transform:** [transform.ts](src/features/update/transform.ts) infers source, resolves cached git info, applies ignore globs, and parses frontmatter with [`gray-matter`](https://github.com/jonschlinkert/gray-matter).
 - **Load:** [load.ts](src/features/update/load.ts) writes `sources` and `skills` in one deterministic transaction.
 

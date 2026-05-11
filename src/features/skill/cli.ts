@@ -8,12 +8,17 @@ import type { CAC } from "cac";
 
 type LsCommandOptions = {
     global?: boolean;
+    nodeModules?: boolean;
 };
 
 const LS_COMMAND_OPTIONS = [
     {
         rawName: "--global, -g",
         description: "List skills installed in user-level agent folders",
+    },
+    {
+        rawName: "--node-modules, -m",
+        description: "List skills found under node_modules folders",
     },
 ] as const satisfies readonly CliOptionItem[];
 
@@ -29,6 +34,7 @@ export function registerSkillCommands(cli: CAC): void {
                 const { runLs } = await import("./run-ls.ts");
                 await runLs(process.cwd(), {
                     global: Boolean(options.global),
+                    nodeModules: Boolean(options.nodeModules),
                 });
             },
         );
