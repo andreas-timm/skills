@@ -46,6 +46,9 @@ export const AGENT_DISABLED_SKILLS_DIR_LIST = AGENT_NAMES.map(
     (agentName) => AGENT_DISABLED_SKILLS_DIRS[agentName],
 );
 
-export function agentSkillLocationName(agentName: AgentName): string {
-    return `agent:${agentName}`;
+export function agentSkillLocationName(
+    agentName: AgentName,
+    subdir: SupportedSkillsSubdirKind = "enabled",
+): string {
+    return subdir === "enabled" ? `agent:${agentName}` : `agent:${agentName}:${subdir}`;
 }

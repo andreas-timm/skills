@@ -40,6 +40,10 @@ describe("expandSkillLocationSettings", () => {
             root: join(homedir(), ".codex/skills"),
             optional: true,
         });
+        expect(settings[agentSkillLocationName("codex", "disabled")]).toEqual({
+            root: join(homedir(), ".codex/disabled_skills"),
+            optional: true,
+        });
     });
 });
 
@@ -48,5 +52,8 @@ describe("expandSkillLocationRoots", () => {
         const roots = expandSkillLocationRoots(config);
 
         expect(roots[agentSkillLocationName("claude")]).toBe(join(homedir(), ".claude/skills"));
+        expect(roots[agentSkillLocationName("claude", "disabled")]).toBe(
+            join(homedir(), ".claude/disabled_skills"),
+        );
     });
 });

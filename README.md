@@ -139,7 +139,7 @@ The model is loaded through [`@huggingface/transformers`](https://github.com/hug
 
 ## Update Pipeline
 
-`skills update` runs an `extract -> transform -> load` ETL pipeline in [src/features/update](src/features/update). It scans configured locations plus the known user-level agent skill directories listed in [src/features/agent/skills-dir.ts](src/features/agent/skills-dir.ts); missing agent directories are skipped.
+`skills update` runs an `extract -> transform -> load` ETL pipeline in [src/features/update](src/features/update). It scans configured locations plus the known user-level agent skill directories listed in [src/features/agent/skills-dir.ts](src/features/agent/skills-dir.ts), including all supported skill subdirectories such as `skills` and `disabled_skills`; missing agent directories are skipped.
 
 - **Extract:** [extract.ts](src/features/update/extract.ts) walks each location with native filesystem APIs to find `SKILL.md`.
 - **Transform:** [transform.ts](src/features/update/transform.ts) infers source, resolves cached git info, applies ignore globs, and parses frontmatter with [`gray-matter`](https://github.com/jonschlinkert/gray-matter).

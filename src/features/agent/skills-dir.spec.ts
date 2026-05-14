@@ -2,6 +2,7 @@ import { describe, expect, test } from "bun:test";
 import {
     AGENT_DISABLED_SKILLS_DIRS,
     AGENT_SKILLS_DIRS,
+    agentSkillLocationName,
     agentSkillsDir,
     CURRENT_AGENTS_DIR,
     GLOBAL_AGENTS_DIRS,
@@ -32,5 +33,11 @@ describe("skills-dir", () => {
         expect(AGENT_DISABLED_SKILLS_DIRS.antigravity).toBe(
             `${GLOBAL_AGENTS_DIRS.antigravity}/${SUPPORTED_SKILLS_SUBDIRS.disabled}`,
         );
+    });
+
+    test("derives stable update location names for agent skill folders", () => {
+        expect(agentSkillLocationName("codex")).toBe("agent:codex");
+        expect(agentSkillLocationName("codex", "enabled")).toBe("agent:codex");
+        expect(agentSkillLocationName("codex", "disabled")).toBe("agent:codex:disabled");
     });
 });
