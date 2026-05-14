@@ -2,7 +2,7 @@ import { afterEach, describe, expect, test } from "bun:test";
 import { mkdir, mkdtemp, realpath, rm, symlink, utimes, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { AGENT_SKILLS_DIR_LIST } from "@features/agent/skills-dir";
+import { AGENT_DISABLED_SKILLS_DIR_LIST, AGENT_SKILLS_DIR_LIST } from "@features/agent/skills-dir";
 import { shortSkillId } from "@features/skill/id";
 import { load } from "@features/update/load";
 import { createDeterministicSkillZip } from "@features/zip/deterministic-zip";
@@ -177,6 +177,43 @@ describe("listInstalledSkills", () => {
                 name: "gemini-demo",
                 path: geminiSkillPath,
                 rootDir: geminiSkillRoot,
+            },
+        ]);
+    });
+
+    test("discovers disabled global skills when requested", async () => {
+        const projectDir = await createTempProject();
+        const homeDir = await createTempProject();
+        const disabledSkillDir = join(homeDir, ".codex/disabled_skills/codex-disabled");
+        await mkdir(disabledSkillDir, { recursive: true });
+        await writeFile(
+            join(disabledSkillDir, "SKILL.md"),
+            "---\nname: codex-disabled\ndescription: Disabled Codex skill.\n---\n# Codex\n",
+        );
+        const modifiedAt = new Date("2026-05-14T09:00:00.000Z");
+        await utimes(join(disabledSkillDir, "SKILL.md"), modifiedAt, modifiedAt);
+        const zip = await createDeterministicSkillZip({
+            rootDir: disabledSkillDir,
+        });
+        const skillPath = await realpath(join(disabledSkillDir, "SKILL.md"));
+        const rootDir = await realpath(disabledSkillDir);
+
+        expect(await listInstalledSkills(projectDir, { global: true, homeDir })).toEqual([]);
+        expect(
+            await listInstalledSkills(projectDir, {
+                global: true,
+                homeDir,
+                includeDisabled: true,
+            }),
+        ).toEqual([
+            {
+                description: "Disabled Codex skill.",
+                disabled: true,
+                id: zip.sha256,
+                modifiedAt,
+                name: "codex-disabled",
+                path: skillPath,
+                rootDir,
             },
         ]);
     });
@@ -380,6 +417,32 @@ describe("resolveInstalledSkillSearchRoots", () => {
             "/home/user/.config/openode/skills",
         ]);
         expect(AGENT_SKILLS_DIR_LIST).toHaveLength(7);
+    });
+
+    test("can include disabled user-level agent folders for global listings", () => {
+        expect(
+            resolveInstalledSkillSearchRoots("/project", {
+                global: true,
+                homeDir: "/home/user",
+                includeDisabled: true,
+            }),
+        ).toEqual([
+            "/home/user/.agents/skills",
+            "/home/user/.agents/disabled_skills",
+            "/home/user/.codex/skills",
+            "/home/user/.codex/disabled_skills",
+            "/home/user/.claude/skills",
+            "/home/user/.claude/disabled_skills",
+            "/home/user/.gemini/skills",
+            "/home/user/.gemini/disabled_skills",
+            "/home/user/.gemini/antigravity/skills",
+            "/home/user/.gemini/antigravity/disabled_skills",
+            "/home/user/.pi/agent/skills",
+            "/home/user/.pi/agent/disabled_skills",
+            "/home/user/.config/openode/skills",
+            "/home/user/.config/openode/disabled_skills",
+        ]);
+        expect(AGENT_DISABLED_SKILLS_DIR_LIST).toHaveLength(7);
     });
 });
 

@@ -4,7 +4,8 @@ import { homedir } from "node:os";
 import { basename, dirname, join, resolve } from "node:path";
 import { loadConfig } from "@config";
 import {
-    AGENT_SKILLS_DIR_LIST,
+    AGENT_NAMES,
+    agentSkillsDir,
     LOCAL_DISABLED_SKILLS_DIR,
     LOCAL_SKILLS_DIR,
 } from "@features/agent/skills-dir";
@@ -116,10 +117,23 @@ function resolveInstalledSkillSearchRootEntries(
     cwd = process.cwd(),
     options: ListInstalledSkillsOptions = {},
 ): InstalledSkillSearchRoot[] {
+    const homeDir = options.homeDir ?? homedir();
     const roots: InstalledSkillSearchRoot[] = options.global
-        ? AGENT_SKILLS_DIR_LIST.map((dir) => ({
-              path: resolve(expandHomeDir(dir, options.homeDir ?? homedir())),
-          }))
+        ? AGENT_NAMES.flatMap((agentName) => [
+              {
+                  path: resolve(expandHomeDir(agentSkillsDir(agentName), homeDir)),
+              },
+              ...(options.includeDisabled
+                  ? [
+                        {
+                            disabled: true,
+                            path: resolve(
+                                expandHomeDir(agentSkillsDir(agentName, "disabled"), homeDir),
+                            ),
+                        } as const,
+                    ]
+                  : []),
+          ])
         : [
               { path: resolve(cwd, LOCAL_SKILLS_DIR) },
               ...(options.includeDisabled
