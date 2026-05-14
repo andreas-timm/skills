@@ -45,6 +45,13 @@ skills show "SKILL_NAME"
 
 By default, `skills install <skill_id>` writes to the current project's `.agents/skills/<skill_name>` folder. Use `--global`, `-g`, or an agent name such as `--global codex` for user-level installs. Use `skills ls --node-modules` to inspect package-provided skills, then `skills install -m <skill_id>` to install one from `node_modules`; add `-s` to install it as a symlink.
 
+To build the optional semantic search index, run update with embeddings enabled:
+
+```sh
+skills update --embed
+skills search "skills for reviewing a pull request" --embed
+```
+
 ## Core Concepts
 
 - **Skill file:** the `SKILL.md` entrypoint.
@@ -104,6 +111,31 @@ Approval has three scopes:
 - **Skill approval:** `skills approve skill <skill_id> --status approved` marks one exact indexed artifact as approved.
 
 `skills install <skill_id>` uses the effective approval check. Direct skill statuses such as `approved` or `ignore` win; location approval only fills in when the skill row has no direct status. Unapproved or ignored skills are blocked unless `--force` is passed. `skills install -m <skill_id>` resolves against local `node_modules` skills instead of the indexed approval database.
+
+## Embedding Search
+
+Text search is the default. Embedding search is optional semantic search for queries where exact words are not enough:
+
+```sh
+skills update --embed
+skills search "browser automation for localhost screenshots" --embed
+```
+
+The packaged embedding config is:
+
+```toml
+[embed]
+model = "nomic-ai/nomic-embed-text-v1.5"
+models_dir = "~/.local/share/skills/models"
+dim = 768
+batch_size = 32
+chunk_tokens = 512
+chunk_overlap = 64
+```
+
+The model is loaded through [`@huggingface/transformers`](https://github.com/huggingface/transformers.js), cached in `models_dir`, and run locally. The first run may download model files if they are not cached yet.
+
+`skills update --embed` embeds the skill name, description, and `SKILL.md` body chunks. Unchanged chunks are reused on later runs. If you override `model` or `dim` in `~/.config/skills/config.toml` or `local.toml`, run `skills update --embed` again; old chunks are cleared when the stored model or dimension changes.
 
 ## Update Pipeline
 
