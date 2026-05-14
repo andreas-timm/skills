@@ -1,4 +1,5 @@
-import { opendir } from "node:fs/promises";
+import type { Dirent } from "node:fs";
+import { opendir, realpath, stat } from "node:fs/promises";
 import { join } from "node:path";
 import type { LocationSourceConfigMap, RawSkill } from "@features/update/types";
 import { defer, from, mergeMap, type Observable } from "rxjs";
@@ -25,6 +26,14 @@ async function openDirectory(dir: string) {
     }
 }
 
+async function maybeRealpath(path: string): Promise<string | undefined> {
+    try {
+        return await realpath(path);
+    } catch {
+        return undefined;
+    }
+}
+
 function isNotFoundError(error: unknown): boolean {
     let current = error;
     while (current && typeof current === "object") {
@@ -36,15 +45,63 @@ function isNotFoundError(error: unknown): boolean {
     return false;
 }
 
-async function scanSkillFiles(dir: string, files: string[]): Promise<void> {
+async function statEntry(path: string) {
+    try {
+        return await stat(path);
+    } catch {
+        return undefined;
+    }
+}
+
+async function isSkillFile(entry: Dirent, path: string): Promise<boolean> {
+    if (entry.name !== SKILL_FILE_NAME) {
+        return false;
+    }
+    if (entry.isFile()) {
+        return true;
+    }
+    if (!entry.isSymbolicLink()) {
+        return false;
+    }
+
+    return Boolean((await statEntry(path))?.isFile());
+}
+
+async function isScannableDirectory(entry: Dirent, path: string): Promise<boolean> {
+    if (entry.name.startsWith(".")) {
+        return false;
+    }
+    if (entry.isDirectory()) {
+        return true;
+    }
+    if (!entry.isSymbolicLink()) {
+        return false;
+    }
+
+    return Boolean((await statEntry(path))?.isDirectory());
+}
+
+async function scanSkillFiles(
+    dir: string,
+    files: string[],
+    visitedDirs: Set<string> = new Set(),
+): Promise<void> {
+    const canonicalDir = await maybeRealpath(dir);
+    if (canonicalDir) {
+        if (visitedDirs.has(canonicalDir)) {
+            return;
+        }
+        visitedDirs.add(canonicalDir);
+    }
+
     const entries = await openDirectory(dir);
     for await (const entry of entries) {
         const entryPath = join(dir, entry.name);
-        if (entry.name === SKILL_FILE_NAME && (entry.isFile() || entry.isSymbolicLink())) {
+        if (await isSkillFile(entry, entryPath)) {
             files.push(entryPath);
         }
-        if (entry.isDirectory() && !entry.name.startsWith(".")) {
-            await scanSkillFiles(entryPath, files);
+        if (await isScannableDirectory(entry, entryPath)) {
+            await scanSkillFiles(entryPath, files, visitedDirs);
         }
     }
 }

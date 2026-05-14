@@ -13,6 +13,7 @@ async function writeSkill(filePath: string): Promise<void> {
 describe("extract", () => {
     it("discovers SKILL.md files with native filesystem discovery", async () => {
         const root = await mkdtemp(join(tmpdir(), "skills-extract-test-"));
+        const symlinkedSkillRoot = await mkdtemp(join(tmpdir(), "skills-extract-link-target-"));
         try {
             await writeSkill(join(root, "beta", "SKILL.md"));
             await writeSkill(join(root, "alpha", "nested", "SKILL.md"));
@@ -23,6 +24,9 @@ describe("extract", () => {
             await writeFile(symlinkTarget, "# Symlinked Skill\n", "utf-8");
             await mkdir(join(root, "linked"), { recursive: true });
             await symlink(symlinkTarget, join(root, "linked", "SKILL.md"));
+
+            await writeSkill(join(symlinkedSkillRoot, "SKILL.md"));
+            await symlink(symlinkedSkillRoot, join(root, "symlinked-skill"), "dir");
 
             const sourceConfig = {
                 source: {
@@ -57,9 +61,17 @@ describe("extract", () => {
                     locationTags: ["review"],
                     locationSourceConfig: sourceConfig,
                 },
+                {
+                    locationName: "packages",
+                    locationRoot: root,
+                    filePath: join(root, "symlinked-skill", "SKILL.md"),
+                    locationTags: ["review"],
+                    locationSourceConfig: sourceConfig,
+                },
             ]);
         } finally {
             await rm(root, { recursive: true, force: true });
+            await rm(symlinkedSkillRoot, { recursive: true, force: true });
         }
     });
 
