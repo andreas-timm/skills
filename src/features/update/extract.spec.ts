@@ -62,4 +62,23 @@ describe("extract", () => {
             await rm(root, { recursive: true, force: true });
         }
     });
+
+    it("skips missing optional locations", async () => {
+        const root = await mkdtemp(join(tmpdir(), "skills-extract-test-"));
+        try {
+            const rows = await lastValueFrom(
+                extract([
+                    {
+                        name: "agent:codex",
+                        root: join(root, "missing"),
+                        optional: true,
+                    },
+                ]).pipe(toArray()),
+            );
+
+            expect(rows).toEqual([]);
+        } finally {
+            await rm(root, { recursive: true, force: true });
+        }
+    });
 });

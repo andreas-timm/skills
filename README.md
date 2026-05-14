@@ -57,7 +57,7 @@ skills search "skills for reviewing a pull request" --embed
 - **Skill file:** the `SKILL.md` entrypoint.
 - **Skill folder:** the folder containing `SKILL.md`.
 - **Skill name:** the frontmatter `name` value.
-- **Location:** a named configured root folder under `skills.locations`.
+- **Location:** a named configured root folder under `skills.locations`, or a known user-level agent skills folder such as `~/.codex/skills` when it exists.
 - **Source:** the nearest git repo under the location, otherwise the first top-level folder or the location name.
 - **Bundle:** a planned grouping layer for related skills from a source; not implemented yet.
 
@@ -139,9 +139,9 @@ The model is loaded through [`@huggingface/transformers`](https://github.com/hug
 
 ## Update Pipeline
 
-`skills update` runs an `extract -> transform -> load` ETL pipeline in [src/features/update](src/features/update):
+`skills update` runs an `extract -> transform -> load` ETL pipeline in [src/features/update](src/features/update). It scans configured locations plus the known user-level agent skill directories listed in [src/features/agent/skills-dir.ts](src/features/agent/skills-dir.ts); missing agent directories are skipped.
 
-- **Extract:** [extract.ts](src/features/update/extract.ts) walks each configured location with native filesystem APIs to find `SKILL.md`.
+- **Extract:** [extract.ts](src/features/update/extract.ts) walks each location with native filesystem APIs to find `SKILL.md`.
 - **Transform:** [transform.ts](src/features/update/transform.ts) infers source, resolves cached git info, applies ignore globs, and parses frontmatter with [`gray-matter`](https://github.com/jonschlinkert/gray-matter).
 - **Load:** [load.ts](src/features/update/load.ts) writes `sources` and `skills` in one deterministic transaction.
 

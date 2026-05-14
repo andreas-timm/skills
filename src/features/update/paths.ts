@@ -1,5 +1,6 @@
 import { join } from "node:path";
 import type { Config } from "@config";
+import { AGENT_NAMES, AGENT_SKILLS_DIRS, agentSkillLocationName } from "@features/agent/skills-dir";
 import { expandHome } from "@libs/path";
 
 export { expandHome };
@@ -9,6 +10,7 @@ export type SkillLocationSettings = {
     root: string;
     tags?: string[];
     approved?: boolean;
+    optional?: boolean;
     source?: Config["skills"]["locations"][string]["source"];
 };
 
@@ -24,9 +26,21 @@ export function resolveSkillsDbPath(config: Config): string {
     return resolveDbPath(config.skills.db_path, config.root_dir);
 }
 
+/** Known user-level agent skill folders, expanded and marked optional. */
+export function expandAgentSkillLocationSettings(): Record<string, SkillLocationSettings> {
+    const out: Record<string, SkillLocationSettings> = {};
+    for (const agentName of AGENT_NAMES) {
+        out[agentSkillLocationName(agentName)] = {
+            root: expandHome(AGENT_SKILLS_DIRS[agentName]),
+            optional: true,
+        };
+    }
+    return out;
+}
+
 /** Location name → settings (`dir` expanded, optional tags / approved). */
 export function expandSkillLocationSettings(config: Config): Record<string, SkillLocationSettings> {
-    const out: Record<string, SkillLocationSettings> = {};
+    const out: Record<string, SkillLocationSettings> = expandAgentSkillLocationSettings();
     for (const [name, loc] of Object.entries(config.skills.locations)) {
         out[name] = {
             root: expandHome(loc.dir),

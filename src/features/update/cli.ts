@@ -14,7 +14,7 @@ export function registerUpdateCommands(cli: CAC): void {
     registerCommands(
         cli,
         ["update"],
-        "Scan skills.locations for SKILL.md files and write/update the SQLite db",
+        "Scan configured and agent skill locations for SKILL.md files and write/update the SQLite db",
         (command) => {
             command
                 .option("--embed", "Refresh embeddings after update completes")
@@ -22,9 +22,10 @@ export function registerUpdateCommands(cli: CAC): void {
                     const config = await loadConfig();
                     const settings = expandSkillLocationSettings(config);
                     const locations = Object.entries(settings).map(
-                        ([name, { root, tags, source }]) => ({
+                        ([name, { root, optional, tags, source }]) => ({
                             name,
                             root,
+                            ...(optional !== undefined ? { optional } : {}),
                             ...(tags !== undefined ? { tags } : {}),
                             ...(source !== undefined ? { sourceConfig: source } : {}),
                         }),

@@ -6,6 +6,7 @@ import { defer, from, mergeMap, type Observable } from "rxjs";
 export type SkillLocation = {
     name: string;
     root: string;
+    optional?: boolean;
     tags?: string[];
     sourceConfig?: LocationSourceConfigMap;
 };
@@ -24,6 +25,17 @@ async function openDirectory(dir: string) {
     }
 }
 
+function isNotFoundError(error: unknown): boolean {
+    let current = error;
+    while (current && typeof current === "object") {
+        if ("code" in current && current.code === "ENOENT") {
+            return true;
+        }
+        current = "cause" in current ? current.cause : undefined;
+    }
+    return false;
+}
+
 async function scanSkillFiles(dir: string, files: string[]): Promise<void> {
     const entries = await openDirectory(dir);
     for await (const entry of entries) {
@@ -37,17 +49,24 @@ async function scanSkillFiles(dir: string, files: string[]): Promise<void> {
     }
 }
 
-async function findSkillFiles(root: string): Promise<string[]> {
+async function findSkillFiles(root: string, optional = false): Promise<string[]> {
     const files: string[] = [];
-    await scanSkillFiles(root, files);
+    try {
+        await scanSkillFiles(root, files);
+    } catch (error) {
+        if (optional && isNotFoundError(error)) {
+            return [];
+        }
+        throw error;
+    }
     return files.sort((a, b) => a.localeCompare(b));
 }
 
 export function extract(locations: SkillLocation[]): Observable<RawSkill> {
     return from(locations).pipe(
-        mergeMap(({ name, root, tags, sourceConfig }) =>
+        mergeMap(({ name, root, optional, tags, sourceConfig }) =>
             defer(async () => {
-                const files = await findSkillFiles(root);
+                const files = await findSkillFiles(root, optional);
                 return files.map(
                     (filePath): RawSkill => ({
                         locationName: name,

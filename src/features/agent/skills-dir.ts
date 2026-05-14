@@ -16,3 +16,7 @@ export type AgentName = keyof typeof AGENT_SKILLS_DIRS;
 export const AGENT_NAMES = Object.keys(AGENT_SKILLS_DIRS) as AgentName[];
 
 export const AGENT_SKILLS_DIR_LIST = AGENT_NAMES.map((agentName) => AGENT_SKILLS_DIRS[agentName]);
+
+export function agentSkillLocationName(agentName: AgentName): string {
+    return `agent:${agentName}`;
+}
