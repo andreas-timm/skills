@@ -52,6 +52,8 @@ skills update --embed
 skills search "skills for reviewing a pull request" --embed
 ```
 
+Embedding search uses the optional `@huggingface/transformers` peer dependency. Base installs skip it; install that package alongside the CLI before using `--embed`.
+
 ## Core Concepts
 
 - **Skill file:** the `SKILL.md` entrypoint.
