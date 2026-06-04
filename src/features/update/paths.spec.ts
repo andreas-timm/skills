@@ -35,6 +35,8 @@ describe("expandSkillLocationSettings", () => {
             root: "/tmp/packages",
             tags: ["review"],
             approved: true,
+            configPath: "~/.config/skills/config.toml",
+            configKey: "skills.locations.packages.dir",
         });
         expect(settings[agentSkillLocationName("codex")]).toEqual({
             root: join(homedir(), ".codex/skills"),

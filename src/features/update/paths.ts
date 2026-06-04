@@ -1,5 +1,5 @@
 import { join } from "node:path";
-import type { Config } from "@config";
+import { type Config, USER_CONFIG_PATH } from "@config";
 import {
     AGENT_NAMES,
     agentSkillLocationName,
@@ -18,7 +18,13 @@ export type SkillLocationSettings = {
     approved?: boolean;
     optional?: boolean;
     source?: Config["skills"]["locations"][string]["source"];
+    configPath?: string;
+    configKey?: string;
 };
+
+function formatConfigKeySegment(key: string): string {
+    return /^[A-Za-z0-9_-]+$/.test(key) ? key : JSON.stringify(key);
+}
 
 export function resolveDbPath(rawPath: string, rootDir: string): string {
     if (rawPath.startsWith("/") || rawPath.startsWith("~")) {
@@ -56,6 +62,8 @@ export function expandSkillLocationSettings(config: Config): Record<string, Skil
             ...(loc.tags !== undefined ? { tags: loc.tags } : {}),
             ...(loc.approved !== undefined ? { approved: loc.approved } : {}),
             ...(loc.source !== undefined ? { source: loc.source } : {}),
+            configPath: USER_CONFIG_PATH,
+            configKey: `skills.locations.${formatConfigKeySegment(name)}.dir`,
         };
     }
     return out;

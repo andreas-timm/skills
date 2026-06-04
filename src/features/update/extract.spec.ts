@@ -93,4 +93,27 @@ describe("extract", () => {
             await rm(root, { recursive: true, force: true });
         }
     });
+
+    it("explains missing configured locations", async () => {
+        const root = await mkdtemp(join(tmpdir(), "skills-extract-test-"));
+        const missingRoot = join(root, "missing");
+        try {
+            await expect(
+                lastValueFrom(
+                    extract([
+                        {
+                            name: "agent-local",
+                            root: missingRoot,
+                            configPath: "~/.config/skills/config.toml",
+                            configKey: "skills.locations.agent-local.dir",
+                        },
+                    ]).pipe(toArray()),
+                ),
+            ).rejects.toThrow(
+                `Missing required skill location "agent-local": ${missingRoot} does not exist. This folder is configured in \`~/.config/skills/config.toml\` as \`skills.locations.agent-local.dir\`.`,
+            );
+        } finally {
+            await rm(root, { recursive: true, force: true });
+        }
+    });
 });

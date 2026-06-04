@@ -10,6 +10,8 @@ export type SkillLocation = {
     optional?: boolean;
     tags?: string[];
     sourceConfig?: LocationSourceConfigMap;
+    configPath?: string;
+    configKey?: string;
 };
 
 const SKILL_FILE_NAME = "SKILL.md";
@@ -43,6 +45,21 @@ function isNotFoundError(error: unknown): boolean {
         current = "cause" in current ? current.cause : undefined;
     }
     return false;
+}
+
+function formatMissingLocationError(location: SkillLocation): string {
+    const message = [
+        `Missing required skill location "${location.name}": ${location.root} does not exist.`,
+    ];
+
+    if (location.configPath && location.configKey) {
+        message.push(
+            `This folder is configured in \`${location.configPath}\` as \`${location.configKey}\`.`,
+            `Update it with \`skills location set ${location.name} <dir>\` or remove it with \`skills location remove ${location.name}\`.`,
+        );
+    }
+
+    return message.join(" ");
 }
 
 async function statEntry(path: string) {
@@ -106,13 +123,16 @@ async function scanSkillFiles(
     }
 }
 
-async function findSkillFiles(root: string, optional = false): Promise<string[]> {
+async function findSkillFiles(location: SkillLocation): Promise<string[]> {
     const files: string[] = [];
     try {
-        await scanSkillFiles(root, files);
+        await scanSkillFiles(location.root, files);
     } catch (error) {
-        if (optional && isNotFoundError(error)) {
+        if (location.optional && isNotFoundError(error)) {
             return [];
+        }
+        if (isNotFoundError(error)) {
+            throw new Error(formatMissingLocationError(location), { cause: error });
         }
         throw error;
     }
@@ -121,16 +141,16 @@ async function findSkillFiles(root: string, optional = false): Promise<string[]>
 
 export function extract(locations: SkillLocation[]): Observable<RawSkill> {
     return from(locations).pipe(
-        mergeMap(({ name, root, optional, tags, sourceConfig }) =>
+        mergeMap((location) =>
             defer(async () => {
-                const files = await findSkillFiles(root, optional);
+                const files = await findSkillFiles(location);
                 return files.map(
                     (filePath): RawSkill => ({
-                        locationName: name,
-                        locationRoot: root,
+                        locationName: location.name,
+                        locationRoot: location.root,
                         filePath,
-                        locationTags: tags,
-                        locationSourceConfig: sourceConfig,
+                        locationTags: location.tags,
+                        locationSourceConfig: location.sourceConfig,
                     }),
                 );
             }).pipe(mergeMap((items) => from(items))),

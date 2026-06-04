@@ -22,12 +22,14 @@ export function registerUpdateCommands(cli: CAC): void {
                     const config = await loadConfig();
                     const settings = expandSkillLocationSettings(config);
                     const locations = Object.entries(settings).map(
-                        ([name, { root, optional, tags, source }]) => ({
+                        ([name, { root, optional, tags, source, configPath, configKey }]) => ({
                             name,
                             root,
                             ...(optional !== undefined ? { optional } : {}),
                             ...(tags !== undefined ? { tags } : {}),
                             ...(source !== undefined ? { sourceConfig: source } : {}),
+                            ...(configPath !== undefined ? { configPath } : {}),
+                            ...(configKey !== undefined ? { configKey } : {}),
                         }),
                     );
                     const dbPath = resolveSkillsDbPath(config);
