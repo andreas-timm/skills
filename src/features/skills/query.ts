@@ -8,6 +8,7 @@ export type ListApprovalStatus = "approved";
 export type SourceListRow = {
     id: string;
     name: string;
+    count: number;
     git: boolean;
     remote: string | null;
     branch: string | null;
@@ -168,8 +169,15 @@ export function listSources(dbPath: string): SourceListRow[] {
     try {
         return db
             .query<SourceListRowRaw, []>(
-                `SELECT b.id,
+                `WITH source_skill_counts AS (
+                    SELECT source_id,
+                           COUNT(DISTINCT skill_id) AS count
+                    FROM skill_occurrences
+                    GROUP BY source_id
+                 )
+                 SELECT b.id,
                         b.name,
+                        COALESCE(sc.count, 0) AS count,
                         b.git,
                         b.remote,
                         b.branch,
@@ -180,6 +188,7 @@ export function listSources(dbPath: string): SourceListRow[] {
                         b.tags,
                         b.note
                  FROM sources b
+                 LEFT JOIN source_skill_counts sc ON sc.source_id = b.id
                  ORDER BY b.name, b.id`,
             )
             .all()
