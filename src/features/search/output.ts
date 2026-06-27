@@ -42,7 +42,7 @@ function formatSourceColumnText(name: string): string {
     if (n.includes("\n")) {
         return n;
     }
-    return n.replaceAll("/", "\n/s");
+    return n.replaceAll("/", "\n/");
 }
 
 function sourceCellDisplay(hit: SkillHit): string {

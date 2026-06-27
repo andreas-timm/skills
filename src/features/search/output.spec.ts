@@ -62,6 +62,24 @@ describe("renderSearchHitsTable", () => {
 
         expect(output).toContain("azure helper ✅");
     });
+
+    it("splits a slashed source name on '/' without injecting a stray character", () => {
+        const occurrence = {
+            sourceId: "source-1",
+            sourceName: "google/skills",
+            location: "packages",
+            subpath: "skills/cloud/google-cloud-recipe-auth",
+            date: "2026-04-23T00:00:00.000Z",
+        };
+        const output = renderSearchHitsTable(
+            [{ ...SAMPLE_HIT, occurrences: [occurrence], primaryOccurrence: occurrence }],
+            120,
+            { showScore: false },
+        );
+
+        expect(output).toContain("/skills");
+        expect(output).not.toContain("/sskills");
+    });
 });
 
 describe("renderSearchHitsCompact", () => {
