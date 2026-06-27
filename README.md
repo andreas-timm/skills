@@ -141,9 +141,13 @@ dim = 768
 batch_size = 32
 chunk_tokens = 512
 chunk_overlap = 64
+device = "webgpu"
+dtype = "fp32"
 ```
 
 The model is loaded through [`@huggingface/transformers`](https://github.com/huggingface/transformers.js), cached in `models_dir`, and run locally. The first run may download model files if they are not cached yet.
+
+`device` selects the inference backend. The default `webgpu` runs on the GPU (Metal on Apple Silicon) and is the fastest option here; `cpu` is the portable fallback. Avoid `coreml`: it recompiles per input shape and stalls on this batched workload. `dtype` selects numeric precision; `fp32` works on every backend, and GPU backends can also try `fp16`. Override either for a single run with `skills update --device <device>` and `--dtype <dtype>` — both flags imply `--embed`.
 
 `skills update --embed` embeds the skill name, description, and `SKILL.md` body chunks. Unchanged chunks are reused on later runs. If you override `model` or `dim` in `~/.config/skills/config.toml` or `local.toml`, run `skills update --embed` again; old chunks are cleared when the stored model or dimension changes.
 
