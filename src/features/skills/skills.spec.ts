@@ -77,7 +77,6 @@ describe("formatSkillListName", () => {
                 name: "python-testing",
                 location: "packages",
                 source_name: "affaan-m/everything-claude-code",
-                status: undefined,
             }),
         ).toBe("python-testing\npackages\naffaan-m/everything-claude-code");
     });
@@ -89,7 +88,6 @@ describe("formatSkillListName", () => {
                 name: "python-testing",
                 location: "packages",
                 source_name: "affaan-m/everything-claude-code",
-                status: undefined,
             }),
         ).toBe("python-testing 🚫 disabled\npackages\naffaan-m/everything-claude-code");
     });

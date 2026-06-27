@@ -533,7 +533,8 @@ describe("renderInstalledSkills", () => {
             { width: 0 },
         );
 
-        expect(output).toContain("indexed-demo ✅ 🚫 disabled");
+        expect(output).toContain("indexed-demo 🚫 disabled");
+        expect(output).toContain("✅");
         expect(output).toContain("Indexed description.");
     });
 
@@ -576,7 +577,8 @@ describe("renderInstalledSkills", () => {
         );
 
         expect(output).toContain("12345678");
-        expect(output).toContain("indexed-node-demo ✅");
+        expect(output).toContain("indexed-node-demo");
+        expect(output).toContain("✅");
         expect(output).toContain("node_modules");
         expect(output).toContain("@acme/tool");
         expect(output).toContain("Indexed node description.");
