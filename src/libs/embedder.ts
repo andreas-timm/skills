@@ -33,22 +33,29 @@ async function loadTransformers(): Promise<Pick<Transformers, "env" | "pipeline"
     }
 }
 
+type PipelineOptions = NonNullable<Parameters<Transformers["pipeline"]>[2]>;
+
 export async function createEmbedder(params: {
     model: string;
     cacheDir: string;
     dim: number;
+    device?: string;
+    dtype?: string;
 }): Promise<Embedder> {
-    const { model, cacheDir, dim } = params;
+    const { model, cacheDir, dim, device, dtype = "fp32" } = params;
     const { env, pipeline } = await loadTransformers();
     await mkdir(cacheDir, { recursive: true });
     env.cacheDir = cacheDir;
     env.allowLocalModels = true;
     if (verbose) {
-        logger.info(`Loading embedder ${model} (cache: ${cacheDir})`);
+        logger.info(
+            `Loading embedder ${model} (cache: ${cacheDir}, device: ${device ?? "default"}, dtype: ${dtype})`,
+        );
     }
-    const extractor = await pipeline("feature-extraction", model, {
-        dtype: "fp32",
-    });
+    const options: PipelineOptions = { dtype: dtype as PipelineOptions["dtype"] };
+    // Omit `device` entirely when unset so Transformers.js picks the env default.
+    if (device) options.device = device as PipelineOptions["device"];
+    const extractor = await pipeline("feature-extraction", model, options);
     const runExtract = async (prefixed: string[]): Promise<Float32Array[]> => {
         const output = await extractor(prefixed, {
             pooling: "mean",

@@ -72,6 +72,8 @@ type EmbedSearchParams = {
     model: string;
     dim: number;
     cacheDir: string;
+    device?: string;
+    dtype?: string;
     limit?: number;
     kinds?: string[];
     snippetsPerSkill?: number;
@@ -532,6 +534,8 @@ async function searchSkillsByEmbedding(
         model: params.model,
         cacheDir: params.cacheDir,
         dim: params.dim,
+        device: params.device,
+        dtype: params.dtype,
     });
     const qvec = await embedder.embedQuery(params.query);
 

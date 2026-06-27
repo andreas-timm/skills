@@ -81,6 +81,8 @@ export function registerSearchCommands(cli: CAC): void {
                                       model: config.embed.model,
                                       dim: config.embed.dim,
                                       cacheDir,
+                                      device: config.embed.device,
+                                      dtype: config.embed.dtype,
                                       limit,
                                       kinds,
                                       approvedLocations,

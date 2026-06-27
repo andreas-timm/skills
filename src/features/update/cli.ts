@@ -1,6 +1,6 @@
 import { registerCommands } from "@andreas-timm/cli";
 import { getLogger } from "@andreas-timm/logger";
-import { loadConfig } from "@config";
+import { EmbedDeviceSchema, EmbedDtypeSchema, loadConfig } from "@config";
 import { runEmbedForConfig } from "@features/update/embed-command";
 import { extract } from "@features/update/extract";
 import { load, reset } from "@features/update/load";
@@ -18,7 +18,21 @@ export function registerUpdateCommands(cli: CAC): void {
         (command) => {
             command
                 .option("--embed", "Refresh embeddings after update completes")
-                .action(async (opts: { embed?: boolean }) => {
+                .option(
+                    "--device <device>",
+                    "Embedding device override (e.g. cpu, coreml, webgpu). Implies --embed.",
+                )
+                .option(
+                    "--dtype <dtype>",
+                    "Embedding data type override (e.g. fp32, fp16). Implies --embed.",
+                )
+                .action(async (opts: { embed?: boolean; device?: string; dtype?: string }) => {
+                    const device =
+                        opts.device !== undefined
+                            ? EmbedDeviceSchema.parse(opts.device)
+                            : undefined;
+                    const dtype =
+                        opts.dtype !== undefined ? EmbedDtypeSchema.parse(opts.dtype) : undefined;
                     const config = await loadConfig();
                     const settings = expandSkillLocationSettings(config);
                     const locations = Object.entries(settings).map(
@@ -40,8 +54,8 @@ export function registerUpdateCommands(cli: CAC): void {
                     const pipeline$ = transform(extract(locations));
                     await load(dbPath, pipeline$);
 
-                    if (opts.embed) {
-                        await runEmbedForConfig(config);
+                    if (opts.embed || device !== undefined || dtype !== undefined) {
+                        await runEmbedForConfig(config, { device, dtype });
                     }
                 });
         },

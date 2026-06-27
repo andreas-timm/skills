@@ -24,6 +24,8 @@ const config = {
         batch_size: 8,
         chunk_tokens: 256,
         chunk_overlap: 32,
+        device: "cpu",
+        dtype: "fp32",
     },
 } satisfies Config;
 
