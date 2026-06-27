@@ -12,6 +12,8 @@ import {
 } from "@features/agent/skills-dir";
 import { approvedLocationNames, effectiveApprovalStatus } from "@features/approve/effective";
 import { type ApprovalStatus, isApprovalStatus } from "@features/approve/status";
+import { recordInstall } from "@features/install/installs";
+import { collectInstallProjectInfo } from "@features/install/project";
 import { resolveInstalledSkillReference } from "@features/skill/installed-reference";
 import { resolveSkillReferenceInDb } from "@features/skill/reference";
 import { listInstalledSkills } from "@features/skill/run-ls.ts";
@@ -90,8 +92,46 @@ export async function installAction(options: InstallActionOptions): Promise<void
         throw error;
     }
 
+    await recordInstallState(options, result);
+
     const verb = result.symlink ? "Linked" : "Installed";
     console.log(`${verb} ${result.skillName} to ${formatDisplayTarget(result.targetDir)}`);
+}
+
+function resolveInstallScope(global: InstallActionOptions["global"]): string {
+    if (global === undefined || global === false) {
+        return "local";
+    }
+    return resolveGlobalInstallAgentName(global);
+}
+
+/**
+ * Persist install state (where / when / project / project info) into the
+ * catalog DB. Recording is best-effort: a failure here must not fail the install.
+ */
+async function recordInstallState(
+    options: InstallActionOptions,
+    result: InstallSkillResult,
+): Promise<void> {
+    try {
+        const config = await loadConfig();
+        const cwd = process.cwd();
+        const project = await collectInstallProjectInfo(cwd);
+        await recordInstall(resolveSkillsDbPath(config), {
+            skillId: result.sha256,
+            name: result.skillName,
+            targetDir: result.targetDir,
+            scope: resolveInstallScope(options.global),
+            installedAt: new Date().toISOString(),
+            projectDir: project.projectDir,
+            gitRemote: project.gitRemote,
+            gitBranch: project.gitBranch,
+            gitCommit: project.gitCommit,
+        });
+    } catch (error) {
+        const reason = error instanceof Error ? error.message : String(error);
+        logger.warn(`Warning: failed to record install state: ${reason}`);
+    }
 }
 
 export async function installSkill(options: InstallSkillOptions): Promise<InstallSkillResult> {

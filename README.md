@@ -45,6 +45,14 @@ skills show "SKILL_NAME"
 
 By default, `skills install <skill_id>` writes to the current project's `.agents/skills/<skill_name>` folder. Use `--global`, `-g`, or an agent name such as `--global codex` for user-level installs. Use `skills ls --node-modules` to inspect package-provided skills, then `skills install -m <skill_id>` to install one from `node_modules`; add `-s` to install it as a symlink.
 
+Every install is recorded in the SQLite catalog so you can later see what was installed **where**, **when**, and from which **project**. Run `skills installs` to list the recorded state:
+
+```sh
+skills installs
+```
+
+Each record keeps the skill id and name, the install location (`target_dir`) and scope (`local` or the global agent name), the install timestamp, and the project directory with its git remote, branch, and commit. Re-installing to the same location refreshes the existing record, and `skills rm <skill_ref>` clears it.
+
 To build the optional semantic search index, run update with embeddings enabled:
 
 ```sh

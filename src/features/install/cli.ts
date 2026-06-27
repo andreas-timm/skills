@@ -59,4 +59,16 @@ export function registerInstallCommands(cli: CAC): void {
             );
         },
     );
+
+    registerCommands(
+        cli,
+        ["installs"],
+        "List recorded skill installs (where, when, and project)",
+        (command) => {
+            command.action(async () => {
+                const { installsAction } = await import("./installs-list");
+                await installsAction();
+            });
+        },
+    );
 }
