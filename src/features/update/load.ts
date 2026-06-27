@@ -394,11 +394,24 @@ export async function load(dbPath: string, source: Observable<TransformedSkill>)
             `UPDATE skills SET version_order = $version_order WHERE id = $id`,
         );
 
+        const pruneSkills = db.prepare(
+            `DELETE FROM skills WHERE id NOT IN (SELECT value FROM json_each($keep))`,
+        );
+        const pruneSources = db.prepare(
+            `DELETE FROM sources WHERE id NOT IN (SELECT value FROM json_each($keep))`,
+        );
+
         db.transaction(() => {
             db.run("DELETE FROM skills_fts");
             db.run("DELETE FROM skill_occurrences");
-            db.run("DELETE FROM skills");
-            db.run("DELETE FROM sources");
+            // Prune only skills/sources that are no longer present instead of
+            // wiping every row. Skill ids are content-addressed, so unchanged
+            // skills keep the same id and their rows survive — which keeps their
+            // skill_chunks (embeddings, FK ON DELETE CASCADE) intact so a later
+            // `--embed` only re-embeds changed skills. Changed/removed skills get
+            // a new (or no) id, so their stale chunks are cascade-deleted here.
+            pruneSkills.run({ $keep: JSON.stringify(sortedSkills.map((s) => s.id)) });
+            pruneSources.run({ $keep: JSON.stringify(sortedSources.map((s) => s.id)) });
             for (const source of sortedSources) {
                 insertSource.run({
                     $id: source.id,

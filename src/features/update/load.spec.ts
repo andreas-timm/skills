@@ -542,6 +542,74 @@ describe("load", () => {
         }
     });
 
+    it("keeps skill_chunks for unchanged skill ids and drops them for changed ids", async () => {
+        const root = await mkdtemp(join(tmpdir(), "skills-load-test-"));
+        const dbPath = join(root, "skills.sqlite");
+        try {
+            await load(
+                dbPath,
+                from([
+                    makeItem({ skill: { id: "skill-1", shortId: "skill-1" } }),
+                    makeItem({
+                        skill: { id: "skill-2", shortId: "skill-2", name: "reminder helper" },
+                        occurrence: { skillId: "skill-2", subpath: "reminder-helper" },
+                    }),
+                ]),
+            );
+
+            // Mimic the embed step creating skill_chunks (embed-run.ts schema).
+            const seed = new Database(dbPath);
+            try {
+                seed.run(`
+                    CREATE TABLE skill_chunks (
+                        id           TEXT PRIMARY KEY,
+                        skill_id     TEXT NOT NULL REFERENCES skills(id) ON DELETE CASCADE,
+                        kind         TEXT NOT NULL,
+                        chunk_index  INTEGER NOT NULL,
+                        text         TEXT NOT NULL,
+                        content_hash TEXT NOT NULL,
+                        embedding    BLOB NOT NULL
+                    );
+                `);
+                for (const id of ["skill-1", "skill-2"]) {
+                    seed
+                        .query<never, [string, string]>(
+                            `INSERT INTO skill_chunks (id, skill_id, kind, chunk_index, text, content_hash, embedding)
+                             VALUES (?, ?, 'body', 0, 'text', 'hash', x'00')`,
+                        )
+                        .run(`${id}#0`, id);
+                }
+            } finally {
+                seed.close();
+            }
+
+            // Re-run: skill-1 unchanged, skill-2 replaced by a new content-addressed id.
+            await load(
+                dbPath,
+                from([
+                    makeItem({ skill: { id: "skill-1", shortId: "skill-1" } }),
+                    makeItem({
+                        skill: { id: "skill-2b", shortId: "skill-2b", name: "reminder helper" },
+                        occurrence: { skillId: "skill-2b", subpath: "reminder-helper" },
+                    }),
+                ]),
+            );
+
+            const reloaded = new Database(dbPath, { readonly: true });
+            try {
+                const chunkIds = reloaded
+                    .query<{ skill_id: string }, []>(`SELECT skill_id FROM skill_chunks`)
+                    .all()
+                    .map((r) => r.skill_id);
+                expect(chunkIds).toEqual(["skill-1"]);
+            } finally {
+                reloaded.close();
+            }
+        } finally {
+            await rm(root, { recursive: true, force: true });
+        }
+    });
+
     it("rebuilds occurrences when a prior migration left a foreign key to bundles", async () => {
         const root = await mkdtemp(join(tmpdir(), "skills-load-test-"));
         const dbPath = join(root, "skills.sqlite");
