@@ -85,10 +85,7 @@ describe("install state", () => {
             );
 
             const targets = listInstalls(dbPath).map((record) => record.targetDir);
-            expect(targets).toEqual([
-                "/project/.agents/skills/new",
-                "/project/.agents/skills/old",
-            ]);
+            expect(targets).toEqual(["/project/.agents/skills/new", "/project/.agents/skills/old"]);
         } finally {
             await rm(dir, { recursive: true, force: true });
         }
