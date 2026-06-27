@@ -22,9 +22,10 @@ export const SkillsSchema = z
     })
     .strict();
 
-// Mirrors @huggingface/transformers DeviceType. Default "cpu" runs on the ONNX
-// Runtime CPU backend everywhere; "coreml" / "webgpu" use the Apple GPU/Neural
-// Engine on macOS arm64 (both opt-in, with per-op CPU fallback).
+// Mirrors @huggingface/transformers DeviceType. Default "webgpu" runs on the
+// GPU (Metal on Apple Silicon) and is the fastest backend here; "cpu" is the
+// portable fallback. Avoid "coreml": its graph recompiles per input shape and
+// stalls on this variable-length batched workload.
 export const EmbedDeviceSchema = z.enum([
     "auto",
     "cpu",
@@ -68,7 +69,7 @@ export const EmbedConfigSchema = z
         batch_size: z.number().int().positive(),
         chunk_tokens: z.number().int().positive(),
         chunk_overlap: z.number().int().nonnegative(),
-        device: EmbedDeviceSchema.default("cpu"),
+        device: EmbedDeviceSchema.default("webgpu"),
         dtype: EmbedDtypeSchema.default("fp32"),
     })
     .strict();

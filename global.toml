@@ -8,9 +8,9 @@ dim = 768
 batch_size = 32
 chunk_tokens = 512
 chunk_overlap = 64
-# Inference backend for embedding. "cpu" (ONNX Runtime CPU) is the portable
-# default. On macOS arm64 (e.g. M-series), "coreml" or "webgpu" use the GPU /
-# Neural Engine — both opt-in and may fall back to CPU for unsupported ops.
-device = "cpu"
-# Data type. CPU uses "fp32"; GPU/CoreML backends often prefer "fp16".
+# Inference backend for embedding. "webgpu" runs on the GPU (Metal on Apple
+# Silicon) and is the fastest option; "cpu" is the portable fallback. Avoid
+# "coreml" — it recompiles per input shape and stalls on this batched workload.
+device = "webgpu"
+# Data type. "fp32" everywhere; GPU backends can also try "fp16".
 dtype = "fp32"
