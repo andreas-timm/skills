@@ -1,4 +1,5 @@
 import { createTable, resolveTableWidth } from "@andreas-timm/cli-table";
+import { typeBadges } from "@features/approve/skill-types";
 import type { SkillHit } from "@features/search/query";
 import stringWidth from "string-width";
 
@@ -22,6 +23,7 @@ export function resolveSearchTableWidth(widthOpt: number | string | undefined): 
 /** Caps so very long source/skill strings wrap and width flows to description. */
 const SOURCE_WIDTH_CAP = 22;
 const SKILL_WIDTH_CAP = 26;
+const TYPE_WIDTH_CAP = 14;
 
 function normalizeCellNewlines(text: string): string {
     return text.replace(/\r\n/g, "\n");
@@ -75,8 +77,12 @@ function shortIdCellText(hit: SkillHit): string {
 }
 
 function skillCellText(hit: SkillHit): string {
-    const name = hit.name ?? hit.primaryOccurrence?.subpath ?? "";
-    return hit.status === "approved" ? `${name} ✅` : name;
+    return hit.name ?? hit.primaryOccurrence?.subpath ?? "";
+}
+
+/** Emoji badges for the dedicated `type` column (recognized type tags + approval). */
+function typeCellText(hit: SkillHit): string {
+    return typeBadges(hit.status, hit.tags);
 }
 
 /**
@@ -93,7 +99,7 @@ function columnWidthsForSearchTable(
 ): number[] {
     const showScore = options.showScore ?? true;
     const gap = COLUMN_GAP;
-    const numCols = showScore ? 5 : 4;
+    const numCols = showScore ? 6 : 5;
     const separatorTotal = (numCols - 1) * gap;
     const inner = Math.max(40, totalWidth - separatorTotal);
     const scoreW = showScore ? 7 : 0;
@@ -110,6 +116,8 @@ function columnWidthsForSearchTable(
         stringWidth("skill"),
         ...hits.map((h) => stringWidth(skillCellText(h) || "-")),
     );
+    // No header title for the type column; size it to the emoji content only.
+    const typeContentMax = Math.max(0, ...hits.map((h) => stringWidth(typeCellText(h))));
 
     const minShortId = stringWidth(SHORT_ID_HEADER);
     const minSource = 4;
@@ -117,8 +125,9 @@ function columnWidthsForSearchTable(
     const shortIdW = Math.max(minShortId, Math.min(shortIdContentMax, SHORT_ID_WIDTH_CAP));
     let sourceW = Math.max(minSource, Math.min(sourceContentMax, SOURCE_WIDTH_CAP));
     let skillW = Math.max(minSkill, Math.min(skillContentMax, SKILL_WIDTH_CAP));
+    const typeW = Math.max(1, Math.min(typeContentMax, TYPE_WIDTH_CAP));
 
-    let descW = inner - shortIdW - scoreW - sourceW - skillW;
+    let descW = inner - shortIdW - scoreW - sourceW - skillW - typeW;
     if (descW < 12) {
         while (descW < 12 && (sourceW > minSource || skillW > minSkill)) {
             if (sourceW > minSource && sourceW >= skillW) {
@@ -128,13 +137,13 @@ function columnWidthsForSearchTable(
             } else {
                 sourceW -= 1;
             }
-            descW = inner - shortIdW - scoreW - sourceW - skillW;
+            descW = inner - shortIdW - scoreW - sourceW - skillW - typeW;
         }
     }
 
     return showScore
-        ? [shortIdW, sourceW, skillW, scoreW, descW]
-        : [shortIdW, sourceW, skillW, descW];
+        ? [shortIdW, sourceW, skillW, typeW, scoreW, descW]
+        : [shortIdW, sourceW, skillW, typeW, descW];
 }
 
 /**
@@ -148,7 +157,7 @@ function columnWidthsForCompactTable(
 ): number[] {
     const showScore = options.showScore ?? true;
     const gap = COLUMN_GAP;
-    const numCols = showScore ? 5 : 4;
+    const numCols = showScore ? 6 : 5;
     const separatorTotal = (numCols - 1) * gap;
     const inner = Math.max(40, totalWidth - separatorTotal);
     const scoreW = showScore ? 7 : 0;
@@ -165,16 +174,22 @@ function columnWidthsForCompactTable(
         stringWidth("skill"),
         ...hits.map((h) => stringWidth(singleLineCell(skillCellText(h) || "-"))),
     );
+    // No header title for the type column; size it to the emoji content only.
+    const typeContentMax = Math.max(
+        0,
+        ...hits.map((h) => stringWidth(singleLineCell(typeCellText(h)))),
+    );
 
     const minShortId = stringWidth(SHORT_ID_HEADER);
     const minSource = 4;
     const minSkill = 5;
     const shortIdW = Math.max(minShortId, Math.min(shortIdContentMax, SHORT_ID_WIDTH_CAP));
-    const maxSourceW = inner - shortIdW - scoreW - minSkill - 12;
+    const typeW = Math.max(1, Math.min(typeContentMax, TYPE_WIDTH_CAP));
+    const maxSourceW = inner - shortIdW - scoreW - minSkill - typeW - 12;
     let sourceW = Math.max(minSource, Math.min(sourceContentMax, Math.max(minSource, maxSourceW)));
     let skillW = Math.max(minSkill, Math.min(skillContentMax, SKILL_WIDTH_CAP));
 
-    let descW = inner - shortIdW - scoreW - sourceW - skillW;
+    let descW = inner - shortIdW - scoreW - sourceW - skillW - typeW;
     if (descW < 12) {
         while (descW < 12 && (sourceW > minSource || skillW > minSkill)) {
             if (sourceW > minSource && sourceW >= skillW) {
@@ -184,13 +199,13 @@ function columnWidthsForCompactTable(
             } else {
                 sourceW -= 1;
             }
-            descW = inner - shortIdW - scoreW - sourceW - skillW;
+            descW = inner - shortIdW - scoreW - sourceW - skillW - typeW;
         }
     }
 
     return showScore
-        ? [shortIdW, sourceW, skillW, scoreW, descW]
-        : [shortIdW, sourceW, skillW, descW];
+        ? [shortIdW, sourceW, skillW, typeW, scoreW, descW]
+        : [shortIdW, sourceW, skillW, typeW, descW];
 }
 
 export function renderSearchHitsTable(
@@ -202,17 +217,22 @@ export function renderSearchHitsTable(
     const colWidths = columnWidthsForSearchTable(totalWidth, hits, options);
     const table = createTable({
         head: showScore
-            ? [SHORT_ID_HEADER, "source", "skill", "score", "description"]
-            : [SHORT_ID_HEADER, "source", "skill", "description"],
+            ? [SHORT_ID_HEADER, "source", "skill", "", "score", "description"]
+            : [SHORT_ID_HEADER, "source", "skill", "", "description"],
         colWidths,
-        aligns: showScore ? [{ index: 3, type: "right" }] : [],
+        aligns: showScore ? [{ index: 4, type: "right" }] : [],
         columnGap: COLUMN_GAP,
         wordWrap: true,
         wrapOnWordBoundary: true,
     });
 
     for (const hit of hits) {
-        const row = [shortIdCellText(hit), sourceCellDisplay(hit), skillCellText(hit)];
+        const row = [
+            shortIdCellText(hit),
+            sourceCellDisplay(hit),
+            skillCellText(hit),
+            typeCellText(hit),
+        ];
         if (showScore) {
             row.push(hit.score.toFixed(3));
         }
@@ -274,13 +294,14 @@ export function renderSearchHitsCompact(
     const shortIdW = colWidths[0] ?? stringWidth(SHORT_ID_HEADER);
     const sourceW = colWidths[1] ?? 4;
     const skillW = colWidths[2] ?? 5;
-    const descCol = colWidths[showScore ? 4 : 3] ?? 12;
+    const typeW = colWidths[3] ?? stringWidth("type");
+    const descCol = colWidths[showScore ? 5 : 4] ?? 12;
     const table = createTable({
         head: showScore
-            ? [SHORT_ID_HEADER, "source", "skill", "score", "description"]
-            : [SHORT_ID_HEADER, "source", "skill", "description"],
+            ? [SHORT_ID_HEADER, "source", "skill", "", "score", "description"]
+            : [SHORT_ID_HEADER, "source", "skill", "", "description"],
         colWidths,
-        aligns: showScore ? [{ index: 3, type: "right" }] : [],
+        aligns: showScore ? [{ index: 4, type: "right" }] : [],
         columnGap: COLUMN_GAP,
         wordWrap: false,
     });
@@ -289,10 +310,12 @@ export function renderSearchHitsCompact(
         const shortIdRaw = singleLineCell(shortIdCellText(hit));
         const sourceRaw = sourceCellSingleLine(hit);
         const skillRaw = singleLineCell(skillCellText(hit));
+        const typeRaw = singleLineCell(typeCellText(hit));
         const row = [
             ellipsisToDisplayWidth(shortIdRaw, shortIdW),
             ellipsisToDisplayWidth(sourceRaw, sourceW),
             ellipsisToDisplayWidth(skillRaw, skillW),
+            ellipsisToDisplayWidth(typeRaw, typeW),
         ];
         if (showScore) {
             row.push(hit.score.toFixed(3));

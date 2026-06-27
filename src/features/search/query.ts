@@ -19,6 +19,7 @@ export type SkillHit = {
     name: string | null;
     description: string | null;
     status: ApprovalStatus | null;
+    tags: string[];
     score: number;
     maxScore: number;
     meanScore: number;
@@ -185,6 +186,62 @@ function resolveHitStatus(
         occurrences.map((occurrence) => occurrence.location),
         approvedLocations,
     );
+}
+
+function parseTagList(raw: string | null): string[] {
+    if (!raw) {
+        return [];
+    }
+    try {
+        const parsed = JSON.parse(raw);
+        return Array.isArray(parsed)
+            ? parsed.filter((tag): tag is string => typeof tag === "string")
+            : [];
+    } catch {
+        return [];
+    }
+}
+
+function loadSkillTags(db: Database): Map<string, string[]> {
+    if (!hasColumn(db, "skills", "tags")) {
+        return new Map();
+    }
+    const rows = db
+        .query<{ skill_public_id: string; tags: string | null }, []>(
+            `SELECT COALESCE(NULLIF(short_id, ''), substr(id, 1, ${SHORT_SKILL_ID_LENGTH})) AS skill_public_id,
+                    tags
+             FROM skills`,
+        )
+        .all();
+    return new Map(rows.map((row) => [row.skill_public_id, parseTagList(row.tags)]));
+}
+
+function loadSourceTags(db: Database): Map<string, string[]> {
+    if (!hasColumn(db, "sources", "tags")) {
+        return new Map();
+    }
+    const rows = db
+        .query<{ source_id: string; tags: string | null }, []>(
+            `SELECT id AS source_id, tags FROM sources`,
+        )
+        .all();
+    return new Map(rows.map((row) => [row.source_id, parseTagList(row.tags)]));
+}
+
+/** Effective types for a hit: the skill's own tags unioned with its sources' tags. */
+function resolveHitTags(
+    skillId: string,
+    occurrences: SkillOccurrence[],
+    tagsBySkill: Map<string, string[]>,
+    tagsBySource: Map<string, string[]>,
+): string[] {
+    const tags = new Set<string>(tagsBySkill.get(skillId) ?? []);
+    for (const occurrence of occurrences) {
+        for (const tag of tagsBySource.get(occurrence.sourceId) ?? []) {
+            tags.add(tag);
+        }
+    }
+    return [...tags];
 }
 
 function escapeLike(value: string): string {
@@ -403,6 +460,8 @@ function searchSkillsByText(
 
     const occurrencesBySkill = loadOccurrences(db);
     const statusBySkill = loadSkillStatuses(db);
+    const tagsBySkill = loadSkillTags(db);
+    const tagsBySource = loadSourceTags(db);
     const approvedLocationSet = new Set(approvedLocations);
     const hits = rows.map((row) => {
         const occurrences = occurrencesBySkill.get(row.skill_public_id) ?? [];
@@ -418,6 +477,7 @@ function searchSkillsByText(
                 statusBySkill,
                 approvedLocationSet,
             ),
+            tags: resolveHitTags(row.skill_public_id, occurrences, tagsBySkill, tagsBySource),
             score: row.score,
             maxScore: row.score,
             meanScore: row.score,
@@ -501,6 +561,8 @@ async function searchSkillsByEmbedding(
 
     const occurrencesBySkill = loadOccurrences(db);
     const statusBySkill = loadSkillStatuses(db);
+    const tagsBySkill = loadSkillTags(db);
+    const tagsBySource = loadSourceTags(db);
     const approvedLocations = new Set(params.approvedLocations ?? []);
     const hits: SkillHit[] = [];
     for (const [skillId, chunks] of bySkill) {
@@ -517,6 +579,7 @@ async function searchSkillsByEmbedding(
             name: first.name,
             description: first.description,
             status: resolveHitStatus(skillId, occurrences, statusBySkill, approvedLocations),
+            tags: resolveHitTags(skillId, occurrences, tagsBySkill, tagsBySource),
             score: 0.7 * max + 0.3 * mean,
             maxScore: max,
             meanScore: mean,
