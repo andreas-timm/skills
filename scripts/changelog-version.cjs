@@ -39,9 +39,34 @@ async function changelogHasVersion({ changelogFile = DEFAULT_CHANGELOG_FILE, cwd
     };
 }
 
+function extractSection(content, version) {
+    const escapedVersion = escapeRegExp(version);
+    const headingRegex = new RegExp(
+        `^#{1,6}\\s+(?:\\[[vV]?${escapedVersion}\\](?:\\([^\\n)]*\\))?|[vV]?${escapedVersion})(?:\\s|$)`,
+        "m",
+    );
+
+    const match = headingRegex.exec(content);
+    if (!match) {
+        return null;
+    }
+
+    const start = match.index;
+    const nextHeadingRegex =
+        /^#{1,6}\s+(?:\[[vV]?\d+\.\d+\.\d+[^\]\n]*\](?:\([^\n)]*\))?|[vV]?\d+\.\d+\.\d+)(?:\s|$)/gm;
+    nextHeadingRegex.lastIndex = start + match[0].length;
+
+    const next = nextHeadingRegex.exec(content);
+    const end = next ? next.index : content.length;
+
+    const section = content.slice(start, end).trim();
+    return section || null;
+}
+
 module.exports = {
     DEFAULT_CHANGELOG_FILE,
     changelogHasVersion,
+    extractSection,
     hasVersionSection,
     readChangelog,
 };

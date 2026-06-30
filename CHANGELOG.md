@@ -1,32 +1,27 @@
-# [0.3.0](https://github.com/andreas-timm/skills/compare/0.2.0...0.3.0) (2026-05-11)
+# [0.3.0](https://github.com/andreas-timm/skills/compare/0.2.0...0.3.0) (2026-06-30)
 
+GPU-accelerated embedding search, broader skill discovery across agents and `node_modules`, and install tracking.
 
-### Features
+### Embedding search
 
-* replace fd scan with native walker ([bfb0f2b](https://github.com/andreas-timm/skills/commit/bfb0f2b09709c1cfb1af9770503bff7c8d9323a7))
-* install node_modules skills ([c4e7200](https://github.com/andreas-timm/skills/commit/c4e7200d634b602d7b7b786423684b88b13c4771))
-* list node_modules skills ([b6cd5fc](https://github.com/andreas-timm/skills/commit/b6cd5fcf80bd6f6d4ce10e317e7d4c4bd3fa2716))
+* Embeddings run on the GPU by default — WebGPU for Apple M-series acceleration — with configurable `device` and `dtype`.
+* The transformers backend is now an optional peer that is loaded lazily, so it is only required when embeddings are used.
+* Existing embeddings are preserved across re-runs instead of being recomputed for unchanged skills.
 
+### Skill discovery
 
-### Bug Fixes
+* Skills are indexed from agent skill directories and from packages under `node_modules`, and can be installed from `node_modules`.
+* Symlinked skill directories are followed, and globally symlinked skills are de-duplicated.
+* Skill scanning uses a native directory walker instead of shelling out to `fd`.
 
-* dedupe global symlinked skills ([b03d01c](https://github.com/andreas-timm/skills/commit/b03d01c882df7584993ccf85eb052e7db80f6533))
+### CLI
 
+* New `installs` command, with installs recording where, when, and in which project they happened.
+* Skill and search listings show a type emoji badge in a dedicated column.
 
-### Documentation
+### Tooling
 
-* move update db notes ([5ad88b1](https://github.com/andreas-timm/skills/commit/5ad88b15ac654a90e9f785c0ec29b006dad0f3cd))
-
-
-### Continuous Integration
-
-* sign semantic-release artifacts ([f378889](https://github.com/andreas-timm/skills/commit/f378889b03a3161c88653de63d924bbeca91cbfa))
-
-
-### Code Refactoring
-
-* rename list feature to skills ([91cffde](https://github.com/andreas-timm/skills/commit/91cffdedcc81aef96f90c093dc47804a2ace62cb))
-
+* Release artifacts are GPG-signed and the changelog/release tooling is more reliable.
 
 # [0.2.0](https://github.com/andreas-timm/skills/compare/0.1.4...0.2.0) (2026-05-03)
 
