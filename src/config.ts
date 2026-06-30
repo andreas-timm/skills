@@ -96,7 +96,10 @@ const configFiles = ["global.toml", USER_CONFIG_PATH, "local.toml"];
 let cached: Promise<Config> | undefined;
 
 export function loadConfig(): Promise<Config> {
-    cached ??= load(ConfigSchema, rootDir, configFiles) as Promise<Config>;
+    // `as never` skips load()'s generic inference over ConfigSchema: inferring
+    // through this deep zod v4 schema triggers TS2589 and exhausts tsc's heap.
+    // The result is asserted to Promise<Config> instead.
+    cached ??= load(ConfigSchema as never, rootDir, configFiles) as Promise<Config>;
     return cached;
 }
 
