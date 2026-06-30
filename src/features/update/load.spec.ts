@@ -572,12 +572,10 @@ describe("load", () => {
                     );
                 `);
                 for (const id of ["skill-1", "skill-2"]) {
-                    seed
-                        .query<never, [string, string]>(
-                            `INSERT INTO skill_chunks (id, skill_id, kind, chunk_index, text, content_hash, embedding)
+                    seed.query<never, [string, string]>(
+                        `INSERT INTO skill_chunks (id, skill_id, kind, chunk_index, text, content_hash, embedding)
                              VALUES (?, ?, 'body', 0, 'text', 'hash', x'00')`,
-                        )
-                        .run(`${id}#0`, id);
+                    ).run(`${id}#0`, id);
                 }
             } finally {
                 seed.close();
