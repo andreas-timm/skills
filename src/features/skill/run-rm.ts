@@ -1,7 +1,11 @@
 import { rm } from "node:fs/promises";
 import path from "node:path";
+import { getLogger } from "@andreas-timm/logger";
+import { loadConfig } from "@config";
 import { LOCAL_SKILLS_DIR } from "@features/agent/skills-dir";
+import { removeInstallRecord } from "@features/install/installs";
 import { shortSkillId } from "@features/skill/id";
+import { resolveSkillsDbPath } from "@features/update/paths";
 import {
     type InstalledSkill,
     listInstalledSkills,
@@ -134,11 +138,22 @@ export async function removeInstalledSkill(
     };
 }
 
+async function forgetInstallRecord(targetDir: string): Promise<void> {
+    try {
+        const config = await loadConfig();
+        removeInstallRecord(resolveSkillsDbPath(config), targetDir);
+    } catch (error) {
+        const reason = error instanceof Error ? error.message : String(error);
+        getLogger().warn(`Warning: failed to clear install state: ${reason}`);
+    }
+}
+
 export async function runRm(
     skillRef: string,
     options: RemoveInstalledSkillOptions = {},
 ): Promise<void> {
     const cwd = resolveCwd(options.cwd);
     const result = await removeInstalledSkill(skillRef, { cwd });
+    await forgetInstallRecord(result.rootDir);
     console.log(`Removed ${result.skillName} from ${formatDisplayTarget(result.rootDir, cwd)}`);
 }

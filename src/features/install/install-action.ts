@@ -1,5 +1,5 @@
 import { Database } from "bun:sqlite";
-import { lstat, mkdir, mkdtemp, readFile, rename, rm, writeFile } from "node:fs/promises";
+import { lstat, mkdir, mkdtemp, readFile, rename, rm, symlink, writeFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import path from "node:path";
 import { getLogger } from "@andreas-timm/logger";
@@ -12,7 +12,11 @@ import {
 } from "@features/agent/skills-dir";
 import { approvedLocationNames, effectiveApprovalStatus } from "@features/approve/effective";
 import { type ApprovalStatus, isApprovalStatus } from "@features/approve/status";
+import { recordInstall } from "@features/install/installs";
+import { collectInstallProjectInfo } from "@features/install/project";
+import { resolveInstalledSkillReference } from "@features/skill/installed-reference";
 import { resolveSkillReferenceInDb } from "@features/skill/reference";
+import { listInstalledSkills } from "@features/skill/run-ls.ts";
 import { expandSkillLocationRoots, resolveSkillsDbPath } from "@features/update/paths";
 import {
     createVerifiedSkillZip,
@@ -27,6 +31,8 @@ export type InstallActionOptions = {
     skill: string;
     force?: boolean;
     global?: boolean | string;
+    nodeModules?: boolean;
+    symlink?: boolean;
 };
 
 export type InstallSkillOptions = InstallActionOptions & {
@@ -44,6 +50,7 @@ export type InstallSkillResult = {
     sha256: string;
     size: number;
     entries: string[];
+    symlink: boolean;
 };
 
 type ErrorWithCode = {
@@ -85,19 +92,62 @@ export async function installAction(options: InstallActionOptions): Promise<void
         throw error;
     }
 
-    console.log(`Installed ${result.skillName} to ${formatDisplayTarget(result.targetDir)}`);
+    await recordInstallState(options, result);
+
+    const verb = result.symlink ? "Linked" : "Installed";
+    console.log(`${verb} ${result.skillName} to ${formatDisplayTarget(result.targetDir)}`);
+}
+
+function resolveInstallScope(global: InstallActionOptions["global"]): string {
+    if (global === undefined || global === false) {
+        return "local";
+    }
+    return resolveGlobalInstallAgentName(global);
+}
+
+/**
+ * Persist install state (where / when / project / project info) into the
+ * catalog DB. Recording is best-effort: a failure here must not fail the install.
+ */
+async function recordInstallState(
+    options: InstallActionOptions,
+    result: InstallSkillResult,
+): Promise<void> {
+    try {
+        const config = await loadConfig();
+        const cwd = process.cwd();
+        const project = await collectInstallProjectInfo(cwd);
+        await recordInstall(resolveSkillsDbPath(config), {
+            skillId: result.sha256,
+            name: result.skillName,
+            targetDir: result.targetDir,
+            scope: resolveInstallScope(options.global),
+            installedAt: new Date().toISOString(),
+            projectDir: project.projectDir,
+            gitRemote: project.gitRemote,
+            gitBranch: project.gitBranch,
+            gitCommit: project.gitCommit,
+        });
+    } catch (error) {
+        const reason = error instanceof Error ? error.message : String(error);
+        logger.warn(`Warning: failed to record install state: ${reason}`);
+    }
 }
 
 export async function installSkill(options: InstallSkillOptions): Promise<InstallSkillResult> {
     const cwd = path.resolve(options.cwd ?? process.cwd());
-    const target = await resolveInstallTarget(options);
+    const target = await resolveInstallTarget(options, cwd);
     const skillName = await readSkillName(target.rootDir);
     const targetDir = path.join(resolveInstallSkillsDir(cwd, options), skillName);
     const zip = await createVerifiedSkillZip(target, {
         skill: options.skill,
     });
 
-    await extractSkillZip(zip.bytes, targetDir);
+    if (options.symlink) {
+        await symlinkSkillDir(target.rootDir, targetDir);
+    } else {
+        await extractSkillZip(zip.bytes, targetDir);
+    }
 
     return {
         skillName,
@@ -106,6 +156,7 @@ export async function installSkill(options: InstallSkillOptions): Promise<Instal
         sha256: zip.sha256,
         size: zip.size,
         entries: zip.entries,
+        symlink: Boolean(options.symlink),
     };
 }
 
@@ -164,7 +215,14 @@ function resolveInstallSkillsDir(
     return path.resolve(expandHomeDir(AGENT_SKILLS_DIRS[agentName], options.homeDir ?? homedir()));
 }
 
-async function resolveInstallTarget(options: InstallSkillOptions): Promise<ResolvedZipTarget> {
+async function resolveInstallTarget(
+    options: InstallSkillOptions,
+    cwd: string,
+): Promise<ResolvedZipTarget> {
+    if (options.nodeModules) {
+        return resolveNodeModulesInstallTarget(cwd, options.skill);
+    }
+
     const directPath = await resolveDirectSkillPath(options.skill);
     if (directPath) {
         if (!options.force) {
@@ -197,6 +255,24 @@ async function resolveInstallTarget(options: InstallSkillOptions): Promise<Resol
         dbPath: context.dbPath,
         locationRoots: context.locationRoots,
     });
+}
+
+async function resolveNodeModulesInstallTarget(
+    cwd: string,
+    reference: string,
+): Promise<ResolvedZipTarget> {
+    const skill = resolveInstalledSkillReference(
+        await listInstalledSkills(cwd, { nodeModules: true }),
+        reference,
+    );
+    if (!skill) {
+        throw new Error(`node_modules skill id not found: ${reference}`);
+    }
+
+    return {
+        rootDir: skill.rootDir,
+        expectedSha256: skill.id,
+    };
 }
 
 async function resolveIndexedInstallContext(
@@ -367,6 +443,12 @@ async function extractSkillZip(bytes: Uint8Array, targetDir: string): Promise<vo
         await rm(stagingDir, { recursive: true, force: true });
         throw error;
     }
+}
+
+async function symlinkSkillDir(sourceDir: string, targetDir: string): Promise<void> {
+    await mkdir(path.dirname(targetDir), { recursive: true });
+    await assertMissing(targetDir);
+    await symlink(sourceDir, targetDir, "dir");
 }
 
 async function assertMissing(targetDir: string): Promise<void> {

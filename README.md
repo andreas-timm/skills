@@ -25,7 +25,6 @@ This tool takes a more conservative path:
 ## Requirements
 
 - [Bun](https://bun.sh)
-- [`fd`](https://github.com/sharkdp/fd), used to scan for `SKILL.md`
 - `git`, used to record remote, branch, commit, and date when available
 
 ## Install
@@ -44,14 +43,31 @@ skills search "react"
 skills show "SKILL_NAME"
 ```
 
-By default, `skills install <skill_id>` writes to the current project's `.agents/skills/<skill_name>` folder. Use `--global`, `-g`, or an agent name such as `--global codex` for user-level installs.
+By default, `skills install <skill_id>` writes to the current project's `.agents/skills/<skill_name>` folder. Use `--global`, `-g`, or an agent name such as `--global codex` for user-level installs. Use `skills ls --node-modules` to inspect package-provided skills, then `skills install -m <skill_id>` to install one from `node_modules`; add `-s` to install it as a symlink.
+
+Every install is recorded in the SQLite catalog so you can later see what was installed **where**, **when**, and from which **project**. Run `skills installs` to list the recorded state:
+
+```sh
+skills installs
+```
+
+Each record keeps the skill id and name, the install location (`target_dir`) and scope (`local` or the global agent name), the install timestamp, and the project directory with its git remote, branch, and commit. Re-installing to the same location refreshes the existing record, and `skills rm <skill_ref>` clears it.
+
+To build the optional semantic search index, run update with embeddings enabled:
+
+```sh
+skills update --embed
+skills search "skills for reviewing a pull request" --embed
+```
+
+Embedding search uses the optional `@huggingface/transformers` peer dependency. Base installs skip it; install that package alongside the CLI before using `--embed`.
 
 ## Core Concepts
 
 - **Skill file:** the `SKILL.md` entrypoint.
 - **Skill folder:** the folder containing `SKILL.md`.
 - **Skill name:** the frontmatter `name` value.
-- **Location:** a named configured root folder under `skills.locations`.
+- **Location:** a named configured root folder under `skills.locations`, or a known user-level agent skills folder such as `~/.codex/skills` when it exists.
 - **Source:** the nearest git repo under the location, otherwise the first top-level folder or the location name.
 - **Bundle:** a planned grouping layer for related skills from a source; not implemented yet.
 
@@ -104,13 +120,42 @@ Approval has three scopes:
 - **Source approval:** `skills approve source <source-id> --status approved` marks the current indexed source snapshot and its current skill rows as approved.
 - **Skill approval:** `skills approve skill <skill_id> --status approved` marks one exact indexed artifact as approved.
 
-`skills install <skill_id>` uses the effective approval check. Direct skill statuses such as `approved` or `ignore` win; location approval only fills in when the skill row has no direct status. Unapproved or ignored skills are blocked unless `--force` is passed.
+`skills install <skill_id>` uses the effective approval check. Direct skill statuses such as `approved` or `ignore` win; location approval only fills in when the skill row has no direct status. Unapproved or ignored skills are blocked unless `--force` is passed. `skills install -m <skill_id>` resolves against local `node_modules` skills instead of the indexed approval database.
+
+## Embedding Search
+
+Text search is the default. Embedding search is optional semantic search for queries where exact words are not enough:
+
+```sh
+skills update --embed
+skills search "browser automation for localhost screenshots" --embed
+```
+
+The packaged embedding config is:
+
+```toml
+[embed]
+model = "nomic-ai/nomic-embed-text-v1.5"
+models_dir = "~/.local/share/skills/models"
+dim = 768
+batch_size = 32
+chunk_tokens = 512
+chunk_overlap = 64
+device = "webgpu"
+dtype = "fp32"
+```
+
+The model is loaded through [`@huggingface/transformers`](https://github.com/huggingface/transformers.js), cached in `models_dir`, and run locally. The first run may download model files if they are not cached yet.
+
+`device` selects the inference backend. The default `webgpu` runs on the GPU (Metal on Apple Silicon) and is the fastest option here; `cpu` is the portable fallback. Avoid `coreml`: it recompiles per input shape and stalls on this batched workload. `dtype` selects numeric precision; `fp32` works on every backend, and GPU backends can also try `fp16`. Override either for a single run with `skills update --device <device>` and `--dtype <dtype>` — both flags imply `--embed`.
+
+`skills update --embed` embeds the skill name, description, and `SKILL.md` body chunks. Unchanged chunks are reused on later runs. If you override `model` or `dim` in `~/.config/skills/config.toml` or `local.toml`, run `skills update --embed` again; old chunks are cleared when the stored model or dimension changes.
 
 ## Update Pipeline
 
-`skills update` runs an `extract -> transform -> load` ETL pipeline in [src/features/update](src/features/update):
+`skills update` runs an `extract -> transform -> load` ETL pipeline in [src/features/update](src/features/update). It scans configured locations plus the known user-level agent skill directories listed in [src/features/agent/skills-dir.ts](src/features/agent/skills-dir.ts), including all supported skill subdirectories such as `skills` and `disabled_skills`; missing agent directories are skipped.
 
-- **Extract:** [extract.ts](src/features/update/extract.ts) runs `fd -g SKILL.md` under each configured location.
+- **Extract:** [extract.ts](src/features/update/extract.ts) walks each location with native filesystem APIs to find `SKILL.md`.
 - **Transform:** [transform.ts](src/features/update/transform.ts) infers source, resolves cached git info, applies ignore globs, and parses frontmatter with [`gray-matter`](https://github.com/jonschlinkert/gray-matter).
 - **Load:** [load.ts](src/features/update/load.ts) writes `sources` and `skills` in one deterministic transaction.
 

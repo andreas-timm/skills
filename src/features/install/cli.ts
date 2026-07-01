@@ -11,6 +11,8 @@ import type { CAC } from "cac";
 type InstallCommandOptions = {
     force?: boolean;
     global?: AgentName;
+    nodeModules?: boolean;
+    symlink?: boolean;
 };
 
 const INSTALL_COMMAND_OPTIONS = [
@@ -25,6 +27,14 @@ const INSTALL_COMMAND_OPTIONS = [
             type: [(value: CliOptionRawScalar) => (value === true ? "default" : value)],
             choices: AGENT_NAMES,
         },
+    },
+    {
+        rawName: "--node-modules, -m",
+        description: "Install a skill found under node_modules folders",
+    },
+    {
+        rawName: "--symlink, -s",
+        description: "Install the skill as a symlink",
     },
 ] as const satisfies readonly CliOptionItem[];
 
@@ -42,9 +52,23 @@ export function registerInstallCommands(cli: CAC): void {
                         skill: skillId,
                         force: Boolean(options.force),
                         global: options.global,
+                        nodeModules: Boolean(options.nodeModules),
+                        symlink: Boolean(options.symlink),
                     });
                 },
             );
+        },
+    );
+
+    registerCommands(
+        cli,
+        ["installs"],
+        "List recorded skill installs (where, when, and project)",
+        (command) => {
+            command.action(async () => {
+                const { installsAction } = await import("./installs-list");
+                await installsAction();
+            });
         },
     );
 }

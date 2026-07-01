@@ -5,8 +5,8 @@
     "tagFormat": "${version}",
     "plugins": [
         "@semantic-release/commit-analyzer",
-        "@semantic-release/release-notes-generator",
-        "@semantic-release/changelog",
+        "./scripts/semantic-release-notes.cjs",
+        "./scripts/semantic-release-changelog.cjs",
         [
             "@semantic-release/npm",
             {

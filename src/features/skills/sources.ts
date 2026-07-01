@@ -23,8 +23,10 @@ export async function sourcesAction(opts: { json?: boolean }): Promise<void> {
         return;
     }
 
-    const nameW = Math.max(...sources.map((b) => stringWidth(b.name)));
+    const countW = Math.max(...sources.map((source) => String(source.count).length));
+    const nameW = Math.max(...sources.map((source) => stringWidth(source.name)));
     for (const source of sources) {
+        const count = String(source.count).padStart(countW);
         const name = padEndWide(source.name, nameW);
         const remote = source.remote ?? "-";
         const branch = source.branch ?? "-";
@@ -35,7 +37,7 @@ export async function sourcesAction(opts: { json?: boolean }): Promise<void> {
         const approvalSuffix = approval ? ` ${approval}` : "";
 
         process.stdout.write(
-            `${source.id} ${date} ${name} [${gitFlag}] ${remote} (${branch}, ${shortSha})${approvalSuffix}\n`,
+            `${source.id} ${date} ${count} ${name} [${gitFlag}] ${remote} (${branch}, ${shortSha})${approvalSuffix}\n`,
         );
     }
 }

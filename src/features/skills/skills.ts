@@ -2,6 +2,11 @@ import { createTable, resolveTableWidth } from "@andreas-timm/cli-table";
 import { getLogger } from "@andreas-timm/logger";
 import { loadConfig } from "@config";
 import { approvedLocationNames } from "@features/approve/effective";
+import { toPublicSkillVersion } from "@features/skill/version";
+import { resolveSkillsDbPath } from "@features/update/paths";
+import { formatDateUtc } from "@libs/date";
+import stringWidth from "string-width";
+import { formatApprovalSummary, normalizeInline } from "./format";
 import {
     listSkillOccurrences,
     listSkills,
@@ -9,12 +14,7 @@ import {
     type SkillListRow,
     type SkillOccurrenceListRow,
     type SkillVersionListRow,
-} from "@features/list/query";
-import { toPublicSkillVersion } from "@features/skill/version";
-import { resolveSkillsDbPath } from "@features/update/paths";
-import { formatDateUtc } from "@libs/date";
-import stringWidth from "string-width";
-import { formatApprovalSummary, normalizeInline } from "./format";
+} from "./query";
 import { renderSkillListTable } from "./table";
 
 export { formatSkillListName } from "./table";

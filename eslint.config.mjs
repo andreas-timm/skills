@@ -31,6 +31,16 @@ export default [
         },
     },
     {
+        files: ["scripts/**/*.cjs"],
+        languageOptions: {
+            ecmaVersion: "latest",
+            sourceType: "commonjs",
+            globals: {
+                ...globals.node,
+            },
+        },
+    },
+    {
         files: ["*.mjs"],
         languageOptions: {
             ecmaVersion: "latest",

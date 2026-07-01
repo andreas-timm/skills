@@ -13,6 +13,9 @@ jobs:
   release:
     name: Release
     runs-on: ubuntu-latest
+    env:
+      RELEASE_GIT_NAME: Andreas Timm Semantic Release
+      RELEASE_GIT_EMAIL: info@andreas-timm.dev
     permissions:
       contents: write
       issues: write
@@ -35,8 +38,11 @@ jobs:
       - name: Setup Bun
         uses: oven-sh/setup-bun@v2
 
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+
       - name: Install dependencies
-        run: bun install --frozen-lockfile
+        run: pnpm install --frozen-lockfile
 
       - name: Lint and typecheck
         run: bun lint
@@ -49,6 +55,11 @@ jobs:
 
       - name: Audit dependencies
         run: bun audit --audit-level=moderate
+
+      - name: Configure release signing
+        env:
+          RELEASE_GPG_PRIVATE_KEY: ${{ secrets.RELEASE_GPG_PRIVATE_KEY }}
+        run: bash .github/workflows/scripts/signing.sh
 
       - name: Read current version
         id: current
@@ -99,8 +110,11 @@ jobs:
       - name: Setup Bun
         uses: oven-sh/setup-bun@v2
 
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+
       - name: Install dependencies
-        run: bun install --frozen-lockfile
+        run: pnpm install --frozen-lockfile
 
       - name: Publish
         run: bun run release:publish --provenance
@@ -130,8 +144,11 @@ jobs:
       - name: Setup Bun
         uses: oven-sh/setup-bun@v2
 
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+
       - name: Install dependencies
-        run: bun install --frozen-lockfile
+        run: pnpm install --frozen-lockfile
 
       - name: Publish
         run: bun run release:publish --registry=https://npm.pkg.github.com

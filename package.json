@@ -3,6 +3,7 @@
     "version": "0.2.0",
     "description": "Local-first skill registry and approval CLI for agent skills",
     "license": "BSD-2-Clause",
+    "packageManager": "pnpm@11.9.0",
     "author": {
         "name": "Andreas Timm",
         "email": "info@andreas-timm.dev"
@@ -46,14 +47,16 @@
         "prepack": "bun run build",
         "prepublishOnly": "bun run lint && bun test && bun audit --audit-level=moderate",
         "release": "semantic-release",
-        "release:preview": "semantic-release --dry-run --no-ci --plugins @semantic-release/commit-analyzer @semantic-release/release-notes-generator",
+        "release:preview": "node scripts/release-preview.cjs",
         "release:publish": "bun scripts/publish.ts"
     },
     "devDependencies": {
         "@biomejs/biome": "^2.4.13",
         "@eslint/js": "^10.0.1",
+        "@huggingface/transformers": "^4.1.0",
         "@semantic-release/changelog": "^6.0.3",
         "@semantic-release/git": "^10.0.1",
+        "@semantic-release/release-notes-generator": "^14.1.0",
         "@types/bun": "^1.3.12",
         "@types/node": "^25.6.0",
         "@types/pako": "^2.0.4",
@@ -70,7 +73,6 @@
         "@andreas-timm/cli-table": "^0.1.1",
         "@andreas-timm/config": "^0.1.1",
         "@andreas-timm/logger": "^0.1.1",
-        "@huggingface/transformers": "^4.1.0",
         "@iarna/toml": "^2.2.5",
         "cac": "^7.0.0",
         "date-fns": "^4.1.0",
@@ -81,5 +83,13 @@
         "string-width": "^8.2.0",
         "yaml": "^2.8.3",
         "zod": "^4.3.6"
+    },
+    "peerDependencies": {
+        "@huggingface/transformers": "^4.1.0"
+    },
+    "peerDependenciesMeta": {
+        "@huggingface/transformers": {
+            "optional": true
+        }
     }
 }

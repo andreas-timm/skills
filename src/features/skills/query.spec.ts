@@ -35,6 +35,66 @@ describe("missing db", () => {
     });
 });
 
+describe("listSources", () => {
+    it("includes the distinct skill count for each source", async () => {
+        const root = await mkdtemp(join(tmpdir(), "skills-list-query-"));
+        tempRoots.push(root);
+        const dbPath = join(root, "skills.sqlite");
+        const db = new Database(dbPath, { create: true });
+
+        try {
+            db.run(`
+                CREATE TABLE sources (
+                    id TEXT PRIMARY KEY,
+                    name TEXT NOT NULL,
+                    git INTEGER NOT NULL DEFAULT 0,
+                    remote TEXT,
+                    branch TEXT,
+                    "commit" TEXT,
+                    date TEXT,
+                    approved TEXT,
+                    rating REAL,
+                    tags TEXT NOT NULL DEFAULT '[]',
+                    note TEXT
+                );
+                CREATE TABLE skill_occurrences (
+                    skill_id TEXT NOT NULL,
+                    source_id TEXT NOT NULL,
+                    subpath TEXT NOT NULL,
+                    location TEXT NOT NULL,
+                    PRIMARY KEY (skill_id, source_id, subpath)
+                );
+
+                INSERT INTO sources (id, name)
+                VALUES
+                    ('source-two', 'source two'),
+                    ('source-empty', 'empty source'),
+                    ('source-one', 'source one');
+
+                INSERT INTO skill_occurrences (skill_id, source_id, subpath, location)
+                VALUES
+                    ('skill-a', 'source-one', 'skills/a', 'packages'),
+                    ('skill-b', 'source-one', 'skills/b', 'packages'),
+                    ('skill-a', 'source-one', 'copies/a', 'packages'),
+                    ('skill-c', 'source-two', 'skills/c', 'packages');
+            `);
+
+            expect(
+                listSources(dbPath).map((row) => ({
+                    id: row.id,
+                    count: row.count,
+                })),
+            ).toEqual([
+                { id: "source-empty", count: 0 },
+                { id: "source-one", count: 2 },
+                { id: "source-two", count: 1 },
+            ]);
+        } finally {
+            db.close();
+        }
+    });
+});
+
 describe("listSkills", () => {
     it("includes primary location and source details for the latest skill version", async () => {
         const root = await mkdtemp(join(tmpdir(), "skills-list-query-"));

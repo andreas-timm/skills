@@ -120,6 +120,8 @@ export async function embed(params: {
     batchSize: number;
     chunkTokens: number;
     chunkOverlap: number;
+    device?: string;
+    dtype?: string;
 }): Promise<void> {
     const db = new Database(params.dbPath, { readwrite: true });
     try {
@@ -167,6 +169,8 @@ export async function embed(params: {
             model: params.model,
             cacheDir: params.cacheDir,
             dim: params.dim,
+            device: params.device,
+            dtype: params.dtype,
         });
 
         const insert = db.prepare(
