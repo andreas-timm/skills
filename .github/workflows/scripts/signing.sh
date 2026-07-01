@@ -23,13 +23,19 @@ mkdir -m 700 -p ~/.gnupg
 chmod 700 ~/.gnupg
 echo "allow-loopback-pinentry" >> ~/.gnupg/gpg-agent.conf
 gpgconf --kill gpg-agent || true
+
+if ! printf '%s\n' "$RELEASE_GPG_PRIVATE_KEY" | grep -q 'BEGIN PGP PRIVATE KEY'; then
+    echo "::error::RELEASE_GPG_PRIVATE_KEY is not an ASCII-armored private key block."
+    echo "::error::Re-run: gpg --armor --export-secret-subkeys '${RELEASE_GPG_KEY_ID}' | gh secret set RELEASE_GPG_PRIVATE_KEY --body-file -"
+    exit 1
+fi
 printf '%s\n' "$RELEASE_GPG_PRIVATE_KEY" | gpg --batch --yes --import
 
-cat > "$RUNNER_TEMP/gpg-with-passphrase" <<'EOF'
+cat > "$RUNNER_TEMP/gpg-loopback" <<'EOF'
 #!/usr/bin/env bash
-exec gpg --batch --yes --pinentry-mode loopback --passphrase "${RELEASE_GPG_PASSPHRASE:-}" "$@"
+exec gpg --batch --yes --pinentry-mode loopback "$@"
 EOF
-chmod 700 "$RUNNER_TEMP/gpg-with-passphrase"
+chmod 700 "$RUNNER_TEMP/gpg-loopback"
 
 cat > "$RUNNER_TEMP/semantic-release-tag-editor" <<'EOF'
 #!/usr/bin/env bash
@@ -40,7 +46,7 @@ chmod 700 "$RUNNER_TEMP/semantic-release-tag-editor"
 git config user.name "$RELEASE_GIT_NAME"
 git config user.email "$RELEASE_GIT_EMAIL"
 git config user.signingkey "$RELEASE_GPG_KEY_ID"
-git config gpg.program "$RUNNER_TEMP/gpg-with-passphrase"
+git config gpg.program "$RUNNER_TEMP/gpg-loopback"
 git config commit.gpgsign true
 git config tag.gpgSign true
 
