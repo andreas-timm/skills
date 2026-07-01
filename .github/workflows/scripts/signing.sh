@@ -7,7 +7,6 @@ required_vars=(
     GITHUB_RUN_ID
     RELEASE_GIT_EMAIL
     RELEASE_GIT_NAME
-    RELEASE_GPG_KEY_ID
     RELEASE_GPG_PRIVATE_KEY
     RUNNER_TEMP
 )
@@ -24,12 +23,17 @@ chmod 700 ~/.gnupg
 echo "allow-loopback-pinentry" >> ~/.gnupg/gpg-agent.conf
 gpgconf --kill gpg-agent || true
 
-if ! printf '%s\n' "$RELEASE_GPG_PRIVATE_KEY" | grep -q 'BEGIN PGP PRIVATE KEY'; then
-    echo "::error::RELEASE_GPG_PRIVATE_KEY is not an ASCII-armored private key block."
-    echo "::error::Re-run: gpg --armor --export-secret-subkeys '${RELEASE_GPG_KEY_ID}' | gh secret set RELEASE_GPG_PRIVATE_KEY --body-file -"
+# Accept either a raw ASCII-armored key or a base64-encoded one.
+release_key="$RELEASE_GPG_PRIVATE_KEY"
+if ! printf '%s' "$release_key" | grep -q 'BEGIN PGP PRIVATE KEY'; then
+    release_key="$(printf '%s' "$RELEASE_GPG_PRIVATE_KEY" | base64 --decode 2>/dev/null || true)"
+fi
+if ! printf '%s' "$release_key" | grep -q 'BEGIN PGP PRIVATE KEY'; then
+    echo "::error::RELEASE_GPG_PRIVATE_KEY is neither an ASCII-armored nor base64-encoded private key block."
+    echo "::error::Re-run: gpg --armor --export-secret-subkeys '<SIGNING_SUBKEY_FPR>!' | gh secret set RELEASE_GPG_PRIVATE_KEY --body-file -"
     exit 1
 fi
-printf '%s\n' "$RELEASE_GPG_PRIVATE_KEY" | gpg --batch --yes --import
+printf '%s\n' "$release_key" | gpg --batch --yes --import
 
 cat > "$RUNNER_TEMP/gpg-loopback" <<'EOF'
 #!/usr/bin/env bash
@@ -43,9 +47,33 @@ printf 'semantic-release signed release tag\n' > "$1"
 EOF
 chmod 700 "$RUNNER_TEMP/semantic-release-tag-editor"
 
+# Derive the signing (sub)key fingerprint from the imported key material,
+# preferring a signing-capable subkey and falling back to the primary.
+signing_fpr="$(
+    gpg --batch --with-colons --list-secret-keys --with-subkey-fingerprints |
+        awk -F: '
+            $1 == "ssb" && $12 ~ /s/ { want = 1; next }
+            $1 == "fpr" && want { print $10; exit }
+            $1 == "sec" || $1 == "ssb" { want = 0 }
+        '
+)"
+if [ -z "$signing_fpr" ]; then
+    signing_fpr="$(
+        gpg --batch --with-colons --list-secret-keys --with-subkey-fingerprints |
+            awk -F: '
+                $1 == "sec" && $12 ~ /s/ { want = 1; next }
+                $1 == "fpr" && want { print $10; exit }
+            '
+    )"
+fi
+if [ -z "$signing_fpr" ]; then
+    echo "::error::RELEASE_GPG_PRIVATE_KEY has no signing-capable key."
+    exit 1
+fi
+
 git config user.name "$RELEASE_GIT_NAME"
 git config user.email "$RELEASE_GIT_EMAIL"
-git config user.signingkey "$RELEASE_GPG_KEY_ID"
+git config user.signingkey "${signing_fpr}!"
 git config gpg.program "$RUNNER_TEMP/gpg-loopback"
 git config commit.gpgsign true
 git config tag.gpgSign true

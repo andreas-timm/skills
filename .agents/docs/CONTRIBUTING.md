@@ -2,7 +2,7 @@
 
 ## Release signing
 
-Semantic-release commits and tags as `Andreas Timm <info@andreas-timm.dev>` and signs the release commit and release tag with the signing subkey `7A25BDF642194B97663B77FF11671D835B202729`. The CI signing setup lives in [scripts/configure-release-signing.sh](scripts/configure-release-signing.sh).
+Semantic-release commits and tags as `Andreas Timm <info@andreas-timm.dev>` and signs the release commit and release tag with the signing subkey `D45B6E6A9019264E62C80FDA843965621C0988E9`. The CI signing setup lives in [.github/workflows/scripts/signing.sh](../../.github/workflows/scripts/signing.sh).
 
 The GitHub Actions workflow expects these repository secrets:
 
@@ -11,7 +11,7 @@ The GitHub Actions workflow expects these repository secrets:
 Export only the signing subkey for CI:
 
 ```sh
-gpg --armor --export-secret-subkeys '7A25BDF642194B97663B77FF11671D835B202729!' \
+gpg --armor --export-secret-subkeys 'D45B6E6A9019264E62C80FDA843965621C0988E9!' \
     | gh secret set RELEASE_GPG_PRIVATE_KEY --repo andreas-timm/skills --body-file -
 ```
 
